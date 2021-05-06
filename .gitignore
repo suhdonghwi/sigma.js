@@ -17,3 +17,4 @@ node_modules
 /types.d.ts
 /test/e2e/screenshots/*.current.png
 /test/e2e/screenshots/*.diff.png
+/www
