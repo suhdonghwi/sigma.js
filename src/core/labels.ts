@@ -7,7 +7,7 @@
  */
 import Graph from "graphology";
 import { EdgeKey, NodeKey } from "graphology-types";
-import { Dimensions, EdgeDisplayData, NodeDisplayData } from "../types";
+import { Dimensions, EdgeDisplayData, NodeDisplayData, CameraState } from "../types";
 import Camera from "./camera";
 
 /**
@@ -43,9 +43,76 @@ function collision(
   return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
 }
 
+function compareNodes(
+  graph: Graph,
+  key1: NodeKey,
+  key2: NodeKey,
+  data1: NodeDisplayData,
+  data2: NodeDisplayData,
+): NodeKey {
+  // First we compare by size
+  if (data1.size > data2.size) return key1;
+  if (data1.size < data2.size) return key2;
+
+  // Then we tie-break by degree
+  const degree1 = graph.degree(key1);
+  const degree2 = graph.degree(key2);
+
+  if (degree1 > degree2) return key1;
+  if (degree1 < degree2) return key2;
+
+  // Then since no two nodes can have the same key, we deterministically
+  // tie-break by key
+  if (key1 > key2) return key1;
+
+  return key2;
+}
+
 // TODO: cache camera position of selected nodes to avoid costly computations
 // in anti-collision step
 // TOOD: document a little bit more so future people can understand this mess
+
+/**
+ * Classes.
+ */
+
+// Class describing how the camera moved from between two of its states
+// TODO: possibility to move this elsewhere if useful
+class CameraMove {
+  isZooming: boolean;
+  isUnzooming: boolean;
+  hasSameRatio: boolean;
+  isPanning: boolean;
+  isStill: boolean;
+
+  constructor(previous: CameraState, current: CameraState) {
+    this.isZooming = current.ratio < previous.ratio;
+    // NOTE: isUnzooming is not the inverse of isZooming, the camera can also stay at same level
+    this.isUnzooming = current.ratio > previous.ratio;
+    this.hasSameRatio = !this.isZooming && !this.isUnzooming;
+    this.isPanning = current.x !== previous.x || current.y !== previous.y;
+    this.isStill = this.hasSameRatio && !this.isPanning;
+  }
+}
+
+class LabelGridState {
+  initialized = false;
+  displayedLabels: Set<NodeKey> = new Set();
+
+  reset(): void {
+    this.initialized = false;
+    this.displayedLabels.clear();
+  }
+
+  update(nodes: Array<NodeKey>): void {
+    this.initialized = true;
+    this.displayedLabels.clear();
+
+    for (let i = 0, l = nodes.length; i < l; i++) {
+      this.displayedLabels.add(nodes[i]);
+    }
+  }
+}
 
 /**
  * Label grid heuristic selecting labels to display.
@@ -81,13 +148,15 @@ export function labelsToDisplayFromGrid(params: {
     visibleNodes,
   } = params;
 
-  const cameraState = camera.getState(),
-    previousCameraState = camera.getPreviousState();
+  const cameraState = camera.getState();
+  const previousCameraState = camera.getPreviousState();
 
   const previousCamera = new Camera();
   previousCamera.setState(previousCameraState);
 
   // State
+  // const cameraMove = new CameraMove(previousCameraState, cameraState);
+
   const zooming = cameraState.ratio < previousCameraState.ratio;
   const panning = cameraState.x !== previousCameraState.x || cameraState.y !== previousCameraState.y;
   const unzooming = cameraState.ratio > previousCameraState.ratio; // NOTE: unzooming is not !zooming since the zoom can remain constant
