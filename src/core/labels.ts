@@ -7,7 +7,7 @@
  */
 import Graph from "graphology";
 import { EdgeKey, NodeKey } from "graphology-types";
-import { Dimensions, EdgeDisplayData, NodeDisplayData, CameraState } from "../types";
+import { Dimensions, Coordinates, EdgeDisplayData, NodeDisplayData, CameraState } from "../types";
 import Camera from "./camera";
 
 /**
@@ -30,7 +30,7 @@ const DEFAULT_UNZOOMED_CELL = {
 /**
  * Helpers.
  */
-function collision(
+function axisAlignedRectangularCollision(
   x1: number,
   y1: number,
   w1: number,
@@ -41,39 +41,6 @@ function collision(
   h2: number,
 ): boolean {
   return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
-}
-
-function compareNodes(
-  graph: Graph,
-  displayed: Set<NodeKey>,
-  key1: NodeKey,
-  key2: NodeKey,
-  data1: NodeDisplayData,
-  data2: NodeDisplayData,
-): NodeKey {
-  // First we check which node is displayed
-  const shown1 = displayed.has(key1) ? 1 : 0;
-  const shown2 = displayed.has(key2) ? 1 : 0;
-
-  if (shown1 > shown2) return key1;
-  if (shown1 < shown2) return key2;
-
-  // Then we compare by size
-  if (data1.size > data2.size) return key1;
-  if (data1.size < data2.size) return key2;
-
-  // Then we tie-break by degree
-  const degree1 = graph.degree(key1);
-  const degree2 = graph.degree(key2);
-
-  if (degree1 > degree2) return key1;
-  if (degree1 < degree2) return key2;
-
-  // Then since no two nodes can have the same key, we deterministically
-  // tie-break by key
-  if (key1 > key2) return key1;
-
-  return key2;
 }
 
 // TODO: cache camera position of selected nodes to avoid costly computations
@@ -103,7 +70,98 @@ class CameraMove {
   }
 }
 
-class LabelGridState {
+class LabelCandidate {
+  displayed: boolean;
+  key: NodeKey;
+  degree: number;
+  size: number;
+
+  constructor(key: NodeKey, size: number, degree: number, displayed: boolean) {
+    this.displayed = displayed;
+    this.key = key;
+    this.size = size;
+    this.degree = degree;
+  }
+
+  isBetter(other: LabelCandidate): boolean {
+    // First we check which node is displayed
+    const shown1 = this.displayed ? 1 : 0;
+    const shown2 = other.displayed ? 1 : 0;
+
+    if (shown1 > shown2) return true;
+    if (shown1 < shown2) return false;
+
+    // Then we compare by size
+    if (this.size > other.size) return true;
+    if (this.size < other.size) return false;
+
+    // Then we tie-break by degree
+    if (this.degree > other.degree) return true;
+    if (this.degree < other.degree) return false;
+
+    // Then since no two nodes can have the same key, we deterministically
+    // tie-break by key
+    if (this.key > other.key) return true;
+
+    return false;
+  }
+}
+
+class SpatialGridIndex<T> {
+  cellWidth: number;
+  cellHeight: number;
+  columns: number;
+  rows: number;
+  items: Record<number, T> = {};
+
+  constructor(dimensions: Dimensions, cell: Dimensions) {
+    // NOTE: this code has undefined behavior if given floats I think
+    const cellWidthRemainder = dimensions.width % cell.width;
+    const cellHeightRemainder = dimensions.height % cell.height;
+
+    this.cellWidth = cell.width + cellWidthRemainder / Math.floor(dimensions.width / cell.width);
+    this.cellHeight = cell.height + cellHeightRemainder / Math.floor(dimensions.height / cell.height);
+
+    // NOTE: the + 2 is taking into account the fact that we could have points
+    // before or after the grid's limits sometimes
+    this.columns = dimensions.width / this.cellWidth + 2;
+    this.rows = dimensions.height / this.cellHeight + 2;
+  }
+
+  getKey(pos: Coordinates): number | undefined {
+    const x = Math.floor(pos.x / this.cellWidth) + 1;
+    const y = Math.floor(pos.y / this.cellHeight) + 1;
+
+    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) {
+      // throw new Error(
+      //   `sigma.SpatialGridIndex: point is out-of-bounds! This should never happen. (xKey: ${x}, yKey: ${y})`,
+      // );
+      return;
+    }
+
+    return x * this.columns + y;
+  }
+
+  set(key: number, candidate: T) {
+    this.items[key] = candidate;
+  }
+
+  get(key: number): T | undefined {
+    return this.items[key];
+  }
+
+  collect<I>(callback: (item: T) => I): Array<I> {
+    let items = [];
+
+    for (let k in this.items) {
+      items.push(callback(this.items[k]));
+    }
+
+    return items;
+  }
+}
+
+export class LabelGridState {
   initialized = false;
   displayedLabels: Set<NodeKey> = new Set();
 
@@ -120,6 +178,54 @@ class LabelGridState {
       this.displayedLabels.add(nodes[i]);
     }
   }
+
+  isShown(node: NodeKey): boolean {
+    return this.displayedLabels.has(node);
+  }
+}
+
+export function labelsToDisplayFromGrid(params: {
+  cache: Record<string, NodeDisplayData>;
+  camera: Camera;
+  cell: Dimensions | null;
+  dimensions: Dimensions;
+  graph: Graph;
+  gridState: LabelGridState;
+  visibleNodes: Array<NodeKey>;
+}): Array<NodeKey> {
+  const { cache, camera, cell, dimensions, graph, gridState, visibleNodes } = params;
+
+  const cameraState = camera.getState();
+
+  // Selecting the correct cell to use
+  let cellToUse = cell ? cell : DEFAULT_CELL;
+  if (cameraState.ratio >= 1.3) cellToUse = DEFAULT_UNZOOMED_CELL;
+
+  const index: SpatialGridIndex<LabelCandidate> = new SpatialGridIndex(dimensions, cellToUse);
+
+  for (let i = 0, l = visibleNodes.length; i < l; i++) {
+    let node = visibleNodes[i];
+    let data = cache[node];
+    let newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.isShown(node));
+    let pos = camera.framedGraphToViewport(dimensions, data);
+    let key = index.getKey(pos);
+
+    if (typeof key === "undefined") continue;
+
+    let currentCandidate = index.get(key);
+
+    if (!currentCandidate || newCandidate.isBetter(currentCandidate)) {
+      index.set(key, newCandidate);
+    }
+  }
+
+  // Collecting results
+  const results = index.collect((c) => c.key);
+
+  // Updating grid state
+  gridState.update(results);
+
+  return results;
 }
 
 /**
@@ -133,7 +239,7 @@ class LabelGridState {
  * @param  {Graph}    graph                - The rendered graph.
  * @return {Array}                         - The selected labels.
  */
-export function labelsToDisplayFromGrid(params: {
+export function labelsToDisplayFromGridOld(params: {
   cache: { [key: string]: NodeDisplayData };
   camera: Camera;
   cell: { width: number; height: number } | null;
@@ -330,7 +436,7 @@ export function labelsToDisplayFromGrid(params: {
         d2 = cache[n2],
         p2 = camera.framedGraphToViewport(dimensions, d2);
 
-      const c = collision(
+      const c = axisAlignedRectangularCollision(
         // First abstract bbox
         p1.x,
         p1.y,

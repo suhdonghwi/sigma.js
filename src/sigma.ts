@@ -32,7 +32,7 @@ import {
   validateGraph,
   zIndexOrdering,
 } from "./utils";
-import { labelsToDisplayFromGrid, edgeLabelsToDisplayFromNodes } from "./core/labels";
+import { labelsToDisplayFromGrid, edgeLabelsToDisplayFromNodes, LabelGridState } from "./core/labels";
 import { Settings, DEFAULT_SETTINGS, validateSettings } from "./settings";
 import { INodeProgram } from "./rendering/webgl/programs/common/node";
 import { IEdgeProgram } from "./rendering/webgl/programs/common/edge";
@@ -117,7 +117,7 @@ export default class Sigma extends EventEmitter {
 
   // State
   private highlightedNodes: Set<NodeKey> = new Set();
-  private displayedLabels: Set<NodeKey> = new Set();
+  private labelGridState: LabelGridState = new LabelGridState();
   private hoveredNode: NodeKey | null = null;
   private renderFrame: number | null = null;
   private renderHighlightedNodesFrame: number | null = null;
@@ -705,16 +705,26 @@ export default class Sigma extends EventEmitter {
     const gridSettings = this.settings.labelGrid;
 
     const labelsToDisplay = labelsToDisplayFromGrid({
-      cache: this.nodeDataCache,
       camera: this.camera,
+      cache: this.nodeDataCache,
       cell: gridSettings.cell,
       dimensions,
-      displayedLabels: this.displayedLabels,
-      fontSize: this.settings.labelSize,
       graph: this.graph,
-      renderedSizeThreshold: gridSettings.renderedSizeThreshold,
+      gridState: this.labelGridState,
       visibleNodes,
     });
+
+    // const labelsToDisplay = labelsToDisplayFromGrid({
+    //   cache: this.nodeDataCache,
+    //   camera: this.camera,
+    //   cell: gridSettings.cell,
+    //   dimensions,
+    //   gridState: this.labelGridState,
+    //   fontSize: this.settings.labelSize,
+    //   graph: this.graph,
+    //   renderedSizeThreshold: gridSettings.renderedSizeThreshold,
+    //   visibleNodes,
+    // });
 
     // Drawing labels
     const context = this.canvasContexts.labels;
@@ -742,9 +752,6 @@ export default class Sigma extends EventEmitter {
       );
     }
 
-    // Caching visible nodes and displayed labels
-    this.displayedLabels = new Set(labelsToDisplay);
-
     return this;
   }
 
@@ -769,7 +776,7 @@ export default class Sigma extends EventEmitter {
       edgeDataCache: this.edgeDataCache,
       graph: this.graph,
       hoveredNode: this.hoveredNode,
-      displayedNodeLabels: this.displayedLabels,
+      displayedNodeLabels: this.labelGridState.displayedLabels,
       highlightedNodes: this.highlightedNodes,
     });
 
@@ -1225,8 +1232,8 @@ export default class Sigma extends EventEmitter {
     this.nodeDataCache = {};
     this.edgeDataCache = {};
 
-    this.highlightedNodes = new Set();
-    this.displayedLabels = new Set();
+    this.highlightedNodes.clear();
+    this.labelGridState.reset();
 
     // Clearing frames
     if (this.renderFrame) {
