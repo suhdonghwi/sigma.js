@@ -45,12 +45,20 @@ function collision(
 
 function compareNodes(
   graph: Graph,
+  displayed: Set<NodeKey>,
   key1: NodeKey,
   key2: NodeKey,
   data1: NodeDisplayData,
   data2: NodeDisplayData,
 ): NodeKey {
-  // First we compare by size
+  // First we check which node is displayed
+  const shown1 = displayed.has(key1) ? 1 : 0;
+  const shown2 = displayed.has(key2) ? 1 : 0;
+
+  if (shown1 > shown2) return key1;
+  if (shown1 < shown2) return key2;
+
+  // Then we compare by size
   if (data1.size > data2.size) return key1;
   if (data1.size < data2.size) return key2;
 
