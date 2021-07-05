@@ -149,9 +149,9 @@ class SpatialGridIndex<T> {
   }
 
   collect<I>(callback: (item: T) => I): Array<I> {
-    let items = [];
+    const items = [];
 
-    for (let k in this.items) {
+    for (const k in this.items) {
       items.push(callback(this.items[k]));
     }
 
@@ -202,15 +202,15 @@ export function labelsToDisplayFromGrid(params: {
   const index: SpatialGridIndex<LabelCandidate> = new SpatialGridIndex(dimensions, cellToUse);
 
   for (let i = 0, l = visibleNodes.length; i < l; i++) {
-    let node = visibleNodes[i];
-    let data = cache[node];
-    let newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
-    let pos = camera.framedGraphToViewport(dimensions, data);
-    let key = index.getKey(pos);
+    const node = visibleNodes[i];
+    const data = cache[node];
+    const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
+    const pos = camera.framedGraphToViewport(dimensions, data);
+    const key = index.getKey(pos);
 
     if (typeof key === "undefined") continue;
 
-    let currentCandidate = index.get(key);
+    const currentCandidate = index.get(key);
 
     if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
       index.set(key, newCandidate);
