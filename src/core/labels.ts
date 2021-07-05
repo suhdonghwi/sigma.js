@@ -83,7 +83,7 @@ class LabelCandidate {
     this.degree = degree;
   }
 
-  isBetter(other: LabelCandidate): boolean {
+  isBetterThan(other: LabelCandidate): boolean {
     // First we check which node is displayed
     const shown1 = this.alreadyDisplayed ? 1 : 0;
     const shown2 = other.alreadyDisplayed ? 1 : 0;
@@ -214,7 +214,7 @@ export function labelsToDisplayFromGrid(params: {
 
     let currentCandidate = index.get(key);
 
-    if (!currentCandidate || newCandidate.isBetter(currentCandidate)) {
+    if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
       index.set(key, newCandidate);
     }
   }
