@@ -122,15 +122,13 @@ class SpatialGridIndex<T> {
     this.cellWidth = cell.width + cellWidthRemainder / Math.floor(dimensions.width / cell.width);
     this.cellHeight = cell.height + cellHeightRemainder / Math.floor(dimensions.height / cell.height);
 
-    // NOTE: the + 2 is taking into account the fact that we could have points
-    // before or after the grid's limits sometimes
-    this.columns = dimensions.width / this.cellWidth + 2;
-    this.rows = dimensions.height / this.cellHeight + 2;
+    this.columns = dimensions.width / this.cellWidth;
+    this.rows = dimensions.height / this.cellHeight;
   }
 
   getKey(pos: Coordinates): number | undefined {
-    const x = Math.floor(pos.x / this.cellWidth) + 1;
-    const y = Math.floor(pos.y / this.cellHeight) + 1;
+    const x = Math.floor(pos.x / this.cellWidth);
+    const y = Math.floor(pos.y / this.cellHeight);
 
     if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) {
       // throw new Error(
