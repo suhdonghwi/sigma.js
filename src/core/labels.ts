@@ -71,13 +71,13 @@ class CameraMove {
 }
 
 class LabelCandidate {
-  displayed: boolean;
+  alreadyDisplayed: boolean;
   key: NodeKey;
   degree: number;
   size: number;
 
-  constructor(key: NodeKey, size: number, degree: number, displayed: boolean) {
-    this.displayed = displayed;
+  constructor(key: NodeKey, size: number, degree: number, alreadyDisplayed: boolean) {
+    this.alreadyDisplayed = alreadyDisplayed;
     this.key = key;
     this.size = size;
     this.degree = degree;
@@ -85,8 +85,8 @@ class LabelCandidate {
 
   isBetter(other: LabelCandidate): boolean {
     // First we check which node is displayed
-    const shown1 = this.displayed ? 1 : 0;
-    const shown2 = other.displayed ? 1 : 0;
+    const shown1 = this.alreadyDisplayed ? 1 : 0;
+    const shown2 = other.alreadyDisplayed ? 1 : 0;
 
     if (shown1 > shown2) return true;
     if (shown1 < shown2) return false;
@@ -179,7 +179,7 @@ export class LabelGridState {
     }
   }
 
-  isShown(node: NodeKey): boolean {
+  labelIsShown(node: NodeKey): boolean {
     return this.displayedLabels.has(node);
   }
 }
@@ -206,7 +206,7 @@ export function labelsToDisplayFromGrid(params: {
   for (let i = 0, l = visibleNodes.length; i < l; i++) {
     let node = visibleNodes[i];
     let data = cache[node];
-    let newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.isShown(node));
+    let newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
     let pos = camera.framedGraphToViewport(dimensions, data);
     let key = index.getKey(pos);
 
