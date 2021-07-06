@@ -115,6 +115,7 @@ class SpatialGridIndex<T> {
   columns: number;
   rows: number;
   items: Record<number, T> = {};
+  additionalItems: Array<T> = [];
 
   constructor(dimensions: Dimensions, cell: Dimensions) {
     this.width = dimensions.width;
@@ -145,9 +146,13 @@ class SpatialGridIndex<T> {
     return x * this.columns + y;
   }
 
+  isVisible(pos: Coordinates): boolean {
+    return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
+  }
+
   isOnFringes(pos: Coordinates): boolean {
-    const halfCellWidth = this.cellWidth / 2;
-    const halfCellHeight = this.cellHeight / 2;
+    const halfCellWidth = this.cellWidth / 4;
+    const halfCellHeight = this.cellHeight / 4;
 
     return (
       pos.x < halfCellWidth ||
@@ -165,11 +170,19 @@ class SpatialGridIndex<T> {
     return this.items[key];
   }
 
+  keep(candidate: T) {
+    this.additionalItems.push(candidate);
+  }
+
   collect<I>(callback: (item: T) => I): Array<I> {
     const items = [];
 
     for (const k in this.items) {
       items.push(callback(this.items[k]));
+    }
+
+    for (let i = 0, l = this.additionalItems.length; i < l; i++) {
+      items.push(callback(this.additionalItems[i]));
     }
 
     return items;
@@ -210,9 +223,12 @@ export function labelsToDisplayFromGrid(params: {
 }): Array<NodeKey> {
   const { cache, camera, cell, dimensions, graph, gridState, visibleNodes } = params;
 
+  // Camera state
   const cameraState = camera.getState();
   const previousCameraState = camera.getPreviousState();
+  const previousCamera = Camera.from(previousCameraState);
   const cameraMove = new CameraMove(previousCameraState, cameraState);
+  const onlyPanning = cameraMove.hasSameRatio && cameraMove.isPanning;
 
   // Selecting the correct cell to use
   // NOTE: we use a larger cell when the graph is unzoomed to avoid
@@ -230,11 +246,35 @@ export function labelsToDisplayFromGrid(params: {
     const key = index.getKey(pos);
     const isShownOnScreen = key !== undefined;
 
+    if (!isShownOnScreen) continue;
+
+    const currentCandidate = index.get(key as number);
+
     // If we are panning while ratio remains the same, the label selection logic
     // changes so that we are keeping all currently show labels if relevant
     // TODO: edit docs
-    if (cameraMove.hasSameRatio && cameraMove.isPanning) {
-      // TODO...
+    if (onlyPanning) {
+      // TODO: optimize by computing only when strictly necessary?
+      const wasVisible = index.isVisible(previousCamera.framedGraphToViewport(dimensions, data));
+
+      if (!newCandidate.alreadyDisplayed && wasVisible) continue;
+
+      if (!currentCandidate) {
+        index.set(key as number, newCandidate);
+      } else {
+        if (currentCandidate.alreadyDisplayed && newCandidate.alreadyDisplayed) {
+          if (newCandidate.isBetterThan(currentCandidate)) {
+            index.set(key as number, newCandidate);
+            index.keep(currentCandidate);
+          } else {
+            index.keep(newCandidate);
+          }
+        } else {
+          if (newCandidate.isBetterThan(currentCandidate)) {
+            index.set(key as number, newCandidate);
+          }
+        }
+      }
     }
 
     // In the general case, chosing a label is simply a matter of placing
@@ -245,10 +285,6 @@ export function labelsToDisplayFromGrid(params: {
     //   3. By degree
     //   4. By key (which is arbitrary but deterministic)
     else {
-      if (!isShownOnScreen) continue;
-
-      const currentCandidate = index.get(key as number);
-
       if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
         index.set(key as number, newCandidate);
       }
