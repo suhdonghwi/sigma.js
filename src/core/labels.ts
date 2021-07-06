@@ -228,6 +228,11 @@ export function labelsToDisplayFromGrid(params: {
       return gridState.reuse();
     }
 
+    // Zoom quantization, i.e. we only chose new labels by 5% ratio increments
+    if ((cameraMove.isZooming || cameraMove.isUnzooming) && Math.trunc(cameraState.ratio * 100) % 5 !== 0) {
+      return gridState.reuse();
+    }
+
     onlyPanning = cameraMove.hasSameRatio && cameraMove.isPanning;
   } else {
     // If grid state is already initialized and we are here, it means
