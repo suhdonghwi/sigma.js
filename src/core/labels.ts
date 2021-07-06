@@ -108,6 +108,8 @@ class LabelCandidate {
 }
 
 class SpatialGridIndex<T> {
+  width: number;
+  height: number;
   cellWidth: number;
   cellHeight: number;
   columns: number;
@@ -115,6 +117,9 @@ class SpatialGridIndex<T> {
   items: Record<number, T> = {};
 
   constructor(dimensions: Dimensions, cell: Dimensions) {
+    this.width = dimensions.width;
+    this.height = dimensions.height;
+
     // NOTE: this code has undefined behavior if given floats I think
     const cellWidthRemainder = dimensions.width % cell.width;
     const cellHeightRemainder = dimensions.height % cell.height;
@@ -138,6 +143,18 @@ class SpatialGridIndex<T> {
     }
 
     return x * this.columns + y;
+  }
+
+  isOnFringes(pos: Coordinates): boolean {
+    const halfCellWidth = this.cellWidth / 2;
+    const halfCellHeight = this.cellHeight / 2;
+
+    return (
+      pos.x < halfCellWidth ||
+      pos.x > this.width - halfCellWidth ||
+      pos.y < halfCellHeight ||
+      pos.y > this.height / halfCellHeight
+    );
   }
 
   set(key: number, candidate: T) {
@@ -194,8 +211,12 @@ export function labelsToDisplayFromGrid(params: {
   const { cache, camera, cell, dimensions, graph, gridState, visibleNodes } = params;
 
   const cameraState = camera.getState();
+  const previousCameraState = camera.getPreviousState();
+  const cameraMove = new CameraMove(previousCameraState, cameraState);
 
   // Selecting the correct cell to use
+  // NOTE: we use a larger cell when the graph is unzoomed to avoid
+  // visual cluttering by the labels, that are then larger than the graph itself
   let cellToUse = cell ? cell : DEFAULT_CELL;
   if (cameraState.ratio >= 1.3) cellToUse = DEFAULT_UNZOOMED_CELL;
 
@@ -207,13 +228,30 @@ export function labelsToDisplayFromGrid(params: {
     const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
     const pos = camera.framedGraphToViewport(dimensions, data);
     const key = index.getKey(pos);
+    const isShownOnScreen = key !== undefined;
 
-    if (typeof key === "undefined") continue;
+    // If we are panning while ratio remains the same, the label selection logic
+    // changes so that we are keeping all currently show labels if relevant
+    // TODO: edit docs
+    if (cameraMove.hasSameRatio && cameraMove.isPanning) {
+      // TODO...
+    }
 
-    const currentCandidate = index.get(key);
+    // In the general case, chosing a label is simply a matter of placing
+    // labels in a constant grid so that only one label per cell can be displayed
+    // In that case, nodes are ranked thusly:
+    //   1. If its label is already shown
+    //   2. By size
+    //   3. By degree
+    //   4. By key (which is arbitrary but deterministic)
+    else {
+      if (!isShownOnScreen) continue;
 
-    if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
-      index.set(key, newCandidate);
+      const currentCandidate = index.get(key as number);
+
+      if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
+        index.set(key as number, newCandidate);
+      }
     }
   }
 
