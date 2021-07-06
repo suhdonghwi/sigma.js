@@ -136,30 +136,14 @@ class SpatialGridIndex<T> {
     const x = Math.floor(pos.x / this.cellWidth);
     const y = Math.floor(pos.y / this.cellHeight);
 
-    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) {
-      // throw new Error(
-      //   `sigma.SpatialGridIndex: point is out-of-bounds! This should never happen. (xKey: ${x}, yKey: ${y})`,
-      // );
-      return;
-    }
+    // Bound checks
+    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) return;
 
     return x * this.columns + y;
   }
 
   isVisible(pos: Coordinates): boolean {
     return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
-  }
-
-  isOnFringes(pos: Coordinates): boolean {
-    const halfCellWidth = this.cellWidth / 4;
-    const halfCellHeight = this.cellHeight / 4;
-
-    return (
-      pos.x < halfCellWidth ||
-      pos.x > this.width - halfCellWidth ||
-      pos.y < halfCellHeight ||
-      pos.y > this.height / halfCellHeight
-    );
   }
 
   set(key: number, candidate: T) {
@@ -259,6 +243,7 @@ export function labelsToDisplayFromGrid(params: {
 
       if (!newCandidate.alreadyDisplayed && wasVisible) continue;
 
+      // TODO: document this hazy logic
       if (!currentCandidate) {
         index.set(key as number, newCandidate);
       } else {
