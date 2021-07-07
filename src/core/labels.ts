@@ -43,10 +43,6 @@ function axisAlignedRectangularCollision(
   return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
 }
 
-// TODO: cache camera position of selected nodes to avoid costly computations
-// in anti-collision step
-// TOOD: document a little bit more so future people can understand this mess
-
 /**
  * Classes.
  */
