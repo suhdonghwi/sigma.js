@@ -233,11 +233,23 @@ export function labelsToDisplayFromGrid(params: {
       return gridState.reuse();
     }
 
-    // Zoom quantization, i.e. we only chose new labels by 3% ratio increments
-    const quantized = Math.trunc(cameraState.ratio * 100) % 3 === 0;
+    const animationIsOver = !camera.isAnimated();
 
-    if ((cameraMove.isZooming || cameraMove.isUnzooming) && !quantized) {
-      return gridState.reuse();
+    // If we are zooming, we wait until the animation is over to choose new labels
+    if (cameraMove.isZooming) {
+      if (!animationIsOver) return gridState.reuse();
+    }
+
+    // If we are unzooming we quantize AND choose to new labels when the animation is over
+    else if (cameraMove.isUnzooming) {
+      // Unzoom quantization, i.e. we only chose new labels by 5% ratio increments
+      // NOTE: I relinearize the ratio to avoid exponential quantization
+      const linearRatio = Math.pow(cameraState.ratio, 1 / 1.5);
+      const quantized = Math.trunc(linearRatio * 100) % 5 === 0;
+
+      if (!quantized && !animationIsOver) {
+        return gridState.reuse();
+      }
     }
 
     onlyPanning = cameraMove.hasSameRatio && cameraMove.isPanning;
