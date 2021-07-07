@@ -267,7 +267,7 @@ export function labelsToDisplayFromGrid(params: {
     const currentCandidate = index.get(key as number);
 
     // If we are panning while ratio remains the same, the label selection logic
-    // changes so that we are keeping all currently show labels if relevant
+    // changes so that we are keeping all currently shown labels when relevant
     // TODO: edit docs
     if (onlyPanning) {
       previousCamera = previousCamera as Camera;
