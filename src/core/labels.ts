@@ -128,13 +128,18 @@ class SpatialGridIndex<T> {
     this.cellWidth = cell.width + cellWidthRemainder / Math.floor(dimensions.width / cell.width);
     this.cellHeight = cell.height + cellHeightRemainder / Math.floor(dimensions.height / cell.height);
 
-    this.columns = dimensions.width / this.cellWidth;
-    this.rows = dimensions.height / this.cellHeight;
+    // NOTE: we add 2 to the number of columns and rows to take into account
+    // that nodes could be found on the fringes of the rendering frame
+    // This is useful to consider those fringes to display labels before their
+    // nodes can actually be shown on screen to avoid flickering
+    this.columns = dimensions.width / this.cellWidth + 2;
+    this.rows = dimensions.height / this.cellHeight + 2;
   }
 
   getKey(pos: Coordinates): number | undefined {
-    const x = Math.floor(pos.x / this.cellWidth);
-    const y = Math.floor(pos.y / this.cellHeight);
+    // We offset the indices by one to take the fringes into account
+    const x = Math.floor(pos.x / this.cellWidth) + 1;
+    const y = Math.floor(pos.y / this.cellHeight) + 1;
 
     // Bound checks
     if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) return;
@@ -142,13 +147,12 @@ class SpatialGridIndex<T> {
     return x * this.columns + y;
   }
 
-  isVisible(pos: Coordinates): boolean {
-    return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
+  isWithinBounds(pos: Coordinates): boolean {
+    return this.getKey(pos) !== undefined;
   }
 
-  isVisibleWithMargins(pos: Coordinates): boolean {
-    // NOTE: this margin model pretends that labels are displayed on the right side of nodes
-    return pos.x > -100 && pos.x <= this.width && pos.y > -20 && pos.y <= this.height;
+  isVisible(pos: Coordinates): boolean {
+    return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
   }
 
   set(key: number, candidate: T) {
@@ -274,9 +278,9 @@ export function labelsToDisplayFromGrid(params: {
 
       // TODO: optimize by computing only when strictly necessary, i.e. when not already displayed
       const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
-      const wasVisible = index.isVisible(previousPos);
+      const wasWithinBounds = index.isWithinBounds(previousPos);
 
-      if (!newCandidate.alreadyDisplayed && wasVisible) continue;
+      if (!newCandidate.alreadyDisplayed && wasWithinBounds) continue;
 
       // TODO: document this hazy logic
       if (!currentCandidate) {
