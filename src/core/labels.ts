@@ -30,7 +30,7 @@ const DEFAULT_UNZOOMED_CELL = {
 /**
  * Helpers.
  */
-function axisAlignedRectangularCollision(
+export function axisAlignedRectangularCollision(
   x1: number,
   y1: number,
   w1: number,
