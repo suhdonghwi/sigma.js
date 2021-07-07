@@ -260,7 +260,7 @@ export function labelsToDisplayFromGrid(params: {
     const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
     const pos = camera.framedGraphToViewport(dimensions, data);
     const key = index.getKey(pos);
-    const isShownOnScreen = index.isVisibleWithMargins(pos);
+    const isShownOnScreen = key !== undefined;
 
     if (!isShownOnScreen) continue;
 
@@ -274,7 +274,7 @@ export function labelsToDisplayFromGrid(params: {
 
       // TODO: optimize by computing only when strictly necessary, i.e. when not already displayed
       const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
-      const wasVisible = index.isVisibleWithMargins(previousPos);
+      const wasVisible = index.isVisible(previousPos);
 
       if (!newCandidate.alreadyDisplayed && wasVisible) continue;
 
