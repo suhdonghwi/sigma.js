@@ -261,7 +261,7 @@ export function labelsToDisplayFromGrid(params: {
       if (!animationIsOver) return gridState.reuse();
     }
 
-    // If we are unzooming we quantize AND choose to new labels when the animation is over
+    // If we are unzooming we quantize and also choose new labels when the animation is over
     else if (cameraMove.isUnzooming) {
       // Unzoom quantization, i.e. we only chose new labels by 5% ratio increments
       // NOTE: I relinearize the ratio to avoid exponential quantization
@@ -302,7 +302,7 @@ export function labelsToDisplayFromGrid(params: {
     const currentCandidate = index.get(key as number);
 
     // If we are panning while ratio remains the same, the label selection logic
-    // changes a bit to remain relevant
+    // changes a bit to remain relevant.
     // Basically, we need to keep all currently shown labels if their node is
     // still visible. Then, we only need to consider adding labels of nodes that
     // were not visible in the last frame, all while considering a short fringe
@@ -310,11 +310,12 @@ export function labelsToDisplayFromGrid(params: {
     if (onlyPanning) {
       previousCamera = previousCamera as Camera;
 
-      // TODO: optimize by computing only when strictly necessary, i.e. when not already displayed
-      const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
-      const wasWithinBounds = index.isWithinBounds(previousPos);
+      if (!newCandidate.alreadyDisplayed) {
+        const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
+        const wasWithinBounds = index.isWithinBounds(previousPos);
 
-      if (!newCandidate.alreadyDisplayed && wasWithinBounds) continue;
+        if (wasWithinBounds) continue;
+      }
 
       if (!currentCandidate) {
         index.set(key as number, newCandidate);
