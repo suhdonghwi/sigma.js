@@ -146,6 +146,11 @@ class SpatialGridIndex<T> {
     return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
   }
 
+  isVisibleWithMargins(pos: Coordinates): boolean {
+    // NOTE: this margin model pretends that labels are displayed on the right side of nodes
+    return pos.x > -100 && pos.x <= this.width && pos.y > -20 && pos.y <= this.height;
+  }
+
   set(key: number, candidate: T) {
     this.items[key] = candidate;
   }
@@ -255,7 +260,7 @@ export function labelsToDisplayFromGrid(params: {
     const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
     const pos = camera.framedGraphToViewport(dimensions, data);
     const key = index.getKey(pos);
-    const isShownOnScreen = key !== undefined;
+    const isShownOnScreen = index.isVisibleWithMargins(pos);
 
     if (!isShownOnScreen) continue;
 
@@ -267,8 +272,9 @@ export function labelsToDisplayFromGrid(params: {
     if (onlyPanning) {
       previousCamera = previousCamera as Camera;
 
-      // TODO: optimize by computing only when strictly necessary?
-      const wasVisible = index.isVisible(previousCamera.framedGraphToViewport(dimensions, data));
+      // TODO: optimize by computing only when strictly necessary, i.e. when not already displayed
+      const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
+      const wasVisible = index.isVisibleWithMargins(previousPos);
 
       if (!newCandidate.alreadyDisplayed && wasVisible) continue;
 
