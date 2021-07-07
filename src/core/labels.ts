@@ -10,6 +10,13 @@ import { EdgeKey, NodeKey } from "graphology-types";
 import { Dimensions, Coordinates, EdgeDisplayData, NodeDisplayData, CameraState } from "../types";
 import Camera from "./camera";
 
+// TODO: it could be useful to reinstate a heuristic always keeping the biggest node's label shown
+// TODO: take hidden into account
+// TODO: reinstate the rendered size threshold
+// TODO: upgrade the edge label selection
+// TODO: switch to a label density setting (with automagic reset of grid state)
+// TODO: maybe computing the grid for all the plane, and not the frame, even when zoomed, can avoid silly panning weirdness
+
 /**
  * Constants.
  */
@@ -295,8 +302,11 @@ export function labelsToDisplayFromGrid(params: {
     const currentCandidate = index.get(key as number);
 
     // If we are panning while ratio remains the same, the label selection logic
-    // changes so that we are keeping all currently shown labels when relevant
-    // TODO: edit docs
+    // changes a bit to remain relevant
+    // Basically, we need to keep all currently shown labels if their node is
+    // still visible. Then, we only need to consider adding labels of nodes that
+    // were not visible in the last frame, all while considering a short fringe
+    // outside of the frame in order to avoid weird apparitions/flickering.
     if (onlyPanning) {
       previousCamera = previousCamera as Camera;
 
@@ -306,7 +316,6 @@ export function labelsToDisplayFromGrid(params: {
 
       if (!newCandidate.alreadyDisplayed && wasWithinBounds) continue;
 
-      // TODO: document this hazy logic
       if (!currentCandidate) {
         index.set(key as number, newCandidate);
       } else {
