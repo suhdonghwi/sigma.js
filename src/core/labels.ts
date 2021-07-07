@@ -133,12 +133,26 @@ class SpatialGridIndex<T> {
   }
 
   getKey(pos: Coordinates): number | undefined {
+    const cellWidthFraction = this.cellWidth / 1.5;
+    const cellHeightFraction = this.cellHeight / 1.5;
+
+    // Taking fringes into account
+    if (
+      pos.x < -cellWidthFraction ||
+      pos.x > this.width + cellWidthFraction ||
+      pos.y < -cellHeightFraction ||
+      pos.y > this.height + cellHeightFraction
+    )
+      return;
+
     // We offset the indices by one to take the fringes into account
     const x = Math.floor(pos.x / this.cellWidth) + 1;
     const y = Math.floor(pos.y / this.cellHeight) + 1;
 
     // Bound checks
-    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) return;
+    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) {
+      throw Error("sigma/core/labels.SpatialGridIndex.getKey: out-of-bounds!");
+    }
 
     return x * this.columns + y;
   }
