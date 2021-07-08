@@ -11,8 +11,6 @@ import { Dimensions, Coordinates, EdgeDisplayData, NodeDisplayData, CameraState 
 import Camera from "./camera";
 
 // TODO: it could be useful to reinstate a heuristic always keeping the biggest node's label shown
-// TODO: take hidden into account
-// TODO: reinstate the rendered size threshold
 // TODO: upgrade the edge label selection
 // TODO: switch to a label density setting (with automagic reset of grid state)
 // TODO: maybe computing the grid for all the plane, and not the frame, even when zoomed, can avoid silly panning weirdness

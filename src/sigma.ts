@@ -741,6 +741,8 @@ export default class Sigma extends EventEmitter {
       // TODO: this should be computed in the canvas components?
       const size = this.camera.scaleSize(data.size);
 
+      if (size < this.settings.labelGrid.renderedSizeThreshold) continue;
+
       this.settings.labelRenderer(
         context,
         {
