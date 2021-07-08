@@ -52,8 +52,11 @@ export function axisAlignedRectangularCollision(
  * Classes.
  */
 
-// Class describing how the camera moved from between two of its states
-// TODO: possibility to move this elsewhere if useful
+/**
+ * Class representing a camera movement from two subsequent states.
+ *
+ * @todo possibility to move this elsewhere if useful
+ */
 class CameraMove {
   isZooming: boolean;
   isUnzooming: boolean;
@@ -71,6 +74,12 @@ class CameraMove {
   }
 }
 
+/**
+ * Class representing a single candidate for the label grid selection.
+ *
+ * It also describes a deterministic way to compare two candidates to assess
+ * which one is better.
+ */
 class LabelCandidate {
   alreadyDisplayed: boolean;
   key: NodeKey;
@@ -108,6 +117,9 @@ class LabelCandidate {
   }
 }
 
+/**
+ * Class representing a 2D spatial grid divided into constant-size cells.
+ */
 class SpatialGridIndex<T> {
   width: number;
   height: number;
@@ -197,6 +209,9 @@ class SpatialGridIndex<T> {
   }
 }
 
+/**
+ * Class representing the state of the label grid selection heuristic.
+ */
 export class LabelGridState {
   initialized = false;
   displayedLabels: Set<NodeKey> = new Set();
