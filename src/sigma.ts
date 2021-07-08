@@ -732,6 +732,9 @@ export default class Sigma extends EventEmitter {
     for (let i = 0, l = labelsToDisplay.length; i < l; i++) {
       const data = this.nodeDataCache[labelsToDisplay[i]];
 
+      // If the node is hidden, we don't need to display its label obviously
+      if (data.hidden) continue;
+
       const { x, y } = this.camera.framedGraphToViewport(dimensions, data);
 
       // TODO: we can cache the labels we need to render until the camera's ratio changes
@@ -786,6 +789,12 @@ export default class Sigma extends EventEmitter {
         sourceData = this.nodeDataCache[extremities[0]],
         targetData = this.nodeDataCache[extremities[1]],
         edgeData = this.edgeDataCache[edgeLabelsToDisplay[i]];
+
+      // If the edge is hidden we don't need to display its label
+      // NOTE: the test on sourceData & targetData is probably paranoid at this point?
+      if (edgeData.hidden || sourceData.hidden || targetData.hidden) {
+        continue;
+      }
 
       const { x: sourceX, y: sourceY } = this.camera.framedGraphToViewport(dimensions, sourceData);
       const { x: targetX, y: targetY } = this.camera.framedGraphToViewport(dimensions, targetData);
