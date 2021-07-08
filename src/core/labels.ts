@@ -224,6 +224,23 @@ export class LabelGridState {
   }
 }
 
+/**
+ * Label heuristic selecting labels to display from the list of currently
+ * visible nodes (and some from the fringes of the frame).
+ *
+ * Under the hood, it dispatches nodes across a 2D grid to select the
+ * worthiest node labels to display.
+ *
+ * @param  {object}         params          - Parameters:
+ * @param  {object}           nodeDataCache - Cache storing nodes data.
+ * @param  {Camera}           camera        - The renderer's camera.
+ * @param  {object}           cell          - Dimensions of the grid cell.
+ * @param  {Dimensions}       dimensions    - Dimensions of the rendering frame.
+ * @param  {Graph}            graph         - The renderered graph.
+ * @param  {LabelGridState}   gridState     - Current state of the label grid.
+ * @param  {Array}            visibleNodes  - List of visible nodes as returned by the quadtree.
+ * @return {Array}                          - The selected labels.
+ */
 export function labelsToDisplayFromGrid(params: {
   cache: Record<string, NodeDisplayData>;
   camera: Camera;
