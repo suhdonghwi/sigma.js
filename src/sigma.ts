@@ -777,8 +777,6 @@ export default class Sigma extends EventEmitter {
     context.clearRect(0, 0, this.width, this.height);
 
     const edgeLabelsToDisplay = edgeLabelsToDisplayFromNodes({
-      nodeDataCache: this.nodeDataCache,
-      edgeDataCache: this.edgeDataCache,
       graph: this.graph,
       hoveredNode: this.hoveredNode,
       displayedNodeLabels: this.labelGridState.displayedLabels,

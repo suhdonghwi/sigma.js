@@ -7,13 +7,13 @@
  */
 import Graph from "graphology";
 import { EdgeKey, NodeKey } from "graphology-types";
-import { Dimensions, Coordinates, EdgeDisplayData, NodeDisplayData, CameraState } from "../types";
+import { Dimensions, Coordinates, NodeDisplayData, CameraState } from "../types";
 import Camera from "./camera";
 
 // TODO: it could be useful to reinstate a heuristic always keeping the biggest node's label shown
-// TODO: upgrade the edge label selection
 // TODO: switch to a label density setting (with automagic reset of grid state)
 // TODO: maybe computing the grid for all the plane, and not the frame, even when zoomed, can avoid silly panning weirdness
+// TODO: maybe we don't need to convert selected labels to an array ever?
 
 /**
  * Constants.
@@ -402,46 +402,31 @@ export function labelsToDisplayFromGrid(params: {
  * @return {Array}                         - The selected labels.
  */
 export function edgeLabelsToDisplayFromNodes(params: {
-  nodeDataCache: { [key: string]: NodeDisplayData };
-  edgeDataCache: { [key: string]: EdgeDisplayData };
   displayedNodeLabels: Set<NodeKey>;
   highlightedNodes: Set<NodeKey>;
   graph: Graph;
   hoveredNode: NodeKey | null;
 }): Array<EdgeKey> {
-  const { nodeDataCache, edgeDataCache, graph, hoveredNode, highlightedNodes, displayedNodeLabels } = params;
+  const { graph, hoveredNode, highlightedNodes, displayedNodeLabels } = params;
 
-  const worthyEdges = new Set<EdgeKey>();
-  const displayedNodeLabelsArray = Array.from(displayedNodeLabels);
+  const worthyEdges: Array<EdgeKey> = [];
 
-  // Each edge connecting a highlighted node has its label displayed if the other extremity is not hidden:
-  const highlightedNodesArray = Array.from(highlightedNodes);
-  if (hoveredNode && !highlightedNodes.has(hoveredNode)) highlightedNodesArray.push(hoveredNode);
-  for (let i = 0; i < highlightedNodesArray.length; i++) {
-    const key = highlightedNodesArray[i];
-    const edges = graph.edges(key);
+  // TODO: the code below can be optimized using #.forEach and batching the code per adj
 
-    for (let j = 0; j < edges.length; j++) {
-      const edgeKey = edges[j];
-      const extremities = graph.extremities(edgeKey),
-        sourceData = nodeDataCache[extremities[0]],
-        targetData = nodeDataCache[extremities[1]],
-        edgeData = edgeDataCache[edgeKey];
-      if (edgeData.hidden && sourceData.hidden && targetData.hidden) {
-        worthyEdges.add(edgeKey);
-      }
+  // We should display an edge's label if:
+  //   - Any of its extremities is highlighted or hovered
+  //   - Both of its extremities has its label shown
+  graph.forEachEdge((edge, _, source, target) => {
+    if (
+      source === hoveredNode ||
+      target === hoveredNode ||
+      highlightedNodes.has(source) ||
+      highlightedNodes.has(target) ||
+      (displayedNodeLabels.has(source) && displayedNodeLabels.has(target))
+    ) {
+      worthyEdges.push(edge);
     }
-  }
+  });
 
-  // Each edge connecting two nodes with visible labels has its label displayed:
-  for (let i = 0; i < displayedNodeLabelsArray.length; i++) {
-    const key = displayedNodeLabelsArray[i];
-    const edges = graph.outboundEdges(key);
-
-    for (let j = 0; j < edges.length; j++)
-      if (!edgeDataCache[edges[j]].hidden && displayedNodeLabels.has(graph.opposite(key, edges[j])))
-        worthyEdges.add(edges[j]);
-  }
-
-  return Array.from(worthyEdges);
+  return worthyEdges;
 }
