@@ -32,6 +32,8 @@ const DEFAULT_UNZOOMED_CELL = {
   height: 300,
 };
 
+const DEFAULT_MAX_DENSITY = 0.3 / 100 / 100;
+
 /**
  * Helpers.
  */
@@ -168,7 +170,7 @@ export class LabelGrid {
     // TODO: memoize on pan
     // TODO: work on visible nodes to optimize? ^
 
-    const n = Math.max(1, Math.floor(Math.pow(1 / ratio, 1.7)));
+    const n = DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth) / ratio / ratio;
 
     const labels = [];
 
