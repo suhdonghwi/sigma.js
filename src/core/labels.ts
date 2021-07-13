@@ -165,6 +165,8 @@ export class LabelGrid {
 
   getLabelsToDisplay(ratio: number): Array<NodeKey> {
     // TODO: always keep at least top N + on unzoomed
+    // TODO: memoize on pan
+    // TODO: work on visible nodes to optimize? ^
 
     const n = Math.max(1, Math.floor(Math.pow(1 / ratio, 1.7)));
 
