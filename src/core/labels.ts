@@ -81,161 +81,99 @@ class CameraMove {
  * which one is better.
  */
 class LabelCandidate {
-  alreadyDisplayed: boolean;
   key: NodeKey;
   degree: number;
   size: number;
 
-  constructor(key: NodeKey, size: number, degree: number, alreadyDisplayed: boolean) {
-    this.alreadyDisplayed = alreadyDisplayed;
+  constructor(key: NodeKey, size: number, degree: number) {
     this.key = key;
     this.size = size;
     this.degree = degree;
   }
 
-  isBetterThan(other: LabelCandidate): boolean {
-    // First we check which node is displayed
-    const shown1 = this.alreadyDisplayed ? 1 : 0;
-    const shown2 = other.alreadyDisplayed ? 1 : 0;
-
-    if (shown1 > shown2) return true;
-    if (shown1 < shown2) return false;
-
-    // Then we compare by size
-    if (this.size > other.size) return true;
-    if (this.size < other.size) return false;
+  static compare(first: LabelCandidate, second: LabelCandidate): number {
+    // First we compare by size
+    if (first.size > second.size) return -1;
+    if (first.size < second.size) return 1;
 
     // Then we tie-break by degree
-    if (this.degree > other.degree) return true;
-    if (this.degree < other.degree) return false;
+    if (first.degree > second.degree) return -1;
+    if (first.degree < second.degree) return 1;
 
     // Then since no two nodes can have the same key, we deterministically
     // tie-break by key
-    if (this.key > other.key) return true;
+    if (first.key > second.key) return -1;
 
-    return false;
+    // NOTE: this comparator cannot return 0
+    return 1;
   }
 }
 
 /**
  * Class representing a 2D spatial grid divided into constant-size cells.
  */
-class SpatialGridIndex<T> {
-  width: number;
-  height: number;
-  cellWidth: number;
-  cellHeight: number;
-  columns: number;
-  rows: number;
-  items: Record<number, T> = {};
-  additionalItems: Array<T> = [];
+export class LabelGrid {
+  width = 0;
+  height = 0;
+  cellWidth = 0;
+  cellHeight = 0;
+  columns = 0;
+  rows = 0;
+  cells: Record<number, Array<LabelCandidate>> = {};
 
-  constructor(dimensions: Dimensions, cell: Dimensions) {
+  resizeAndClear(dimensions: Dimensions, cell: Dimensions) {
     this.width = dimensions.width;
     this.height = dimensions.height;
 
-    // NOTE: this code has undefined behavior if given floats I think
-    const cellWidthRemainder = dimensions.width % cell.width;
-    const cellHeightRemainder = dimensions.height % cell.height;
+    this.cellWidth = cell.width;
+    this.cellHeight = cell.height;
 
-    this.cellWidth = cell.width + cellWidthRemainder / Math.floor(dimensions.width / cell.width);
-    this.cellHeight = cell.height + cellHeightRemainder / Math.floor(dimensions.height / cell.height);
+    this.columns = Math.ceil(dimensions.width / cell.width);
+    this.rows = Math.ceil(dimensions.height / cell.height);
 
-    // NOTE: we add 2 to the number of columns and rows to take into account
-    // that nodes could be found on the fringes of the rendering frame
-    // This is useful to consider those fringes to display labels before their
-    // nodes can actually be shown on screen to avoid flickering
-    this.columns = dimensions.width / this.cellWidth + 2;
-    this.rows = dimensions.height / this.cellHeight + 2;
+    this.cells = {};
   }
 
-  getKey(pos: Coordinates): number | undefined {
-    const cellWidthFraction = this.cellWidth / 1.5;
-    const cellHeightFraction = this.cellHeight / 1.5;
+  private getIndex(pos: Coordinates): number {
+    const xIndex = Math.floor(pos.x / this.cellWidth);
+    const yIndex = Math.floor(pos.y / this.cellHeight);
 
-    // Taking fringes into account
-    if (
-      pos.x < -cellWidthFraction ||
-      pos.x > this.width + cellWidthFraction ||
-      pos.y < -cellHeightFraction ||
-      pos.y > this.height + cellHeightFraction
-    )
-      return;
+    return xIndex * this.columns + yIndex;
+  }
 
-    // We offset the indices by one to take the fringes into account
-    const x = Math.floor(pos.x / this.cellWidth) + 1;
-    const y = Math.floor(pos.y / this.cellHeight) + 1;
+  add(key: NodeKey, degree: number, size: number, pos: Coordinates): void {
+    const candidate = new LabelCandidate(key, size, degree);
 
-    // Bound checks
-    if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) {
-      throw Error("sigma/core/labels.SpatialGridIndex.getKey: out-of-bounds!");
+    const index = this.getIndex(pos);
+    let cell = this.cells[index];
+
+    if (!cell) {
+      cell = [];
+      this.cells[index] = cell;
     }
 
-    return x * this.columns + y;
+    cell.push(candidate);
   }
 
-  isWithinBounds(pos: Coordinates): boolean {
-    return this.getKey(pos) !== undefined;
-  }
-
-  isVisible(pos: Coordinates): boolean {
-    return pos.x > 0 && pos.x <= this.width && pos.y > 0 && pos.y <= this.height;
-  }
-
-  set(key: number, candidate: T) {
-    this.items[key] = candidate;
-  }
-
-  get(key: number): T | undefined {
-    return this.items[key];
-  }
-
-  keep(candidate: T) {
-    this.additionalItems.push(candidate);
-  }
-
-  collect<I>(callback: (item: T) => I): Array<I> {
-    const items = [];
-
-    for (const k in this.items) {
-      items.push(callback(this.items[k]));
-    }
-
-    for (let i = 0, l = this.additionalItems.length; i < l; i++) {
-      items.push(callback(this.additionalItems[i]));
-    }
-
-    return items;
-  }
-}
-
-/**
- * Class representing the state of the label grid selection heuristic.
- */
-export class LabelGridState {
-  initialized = false;
-  displayedLabels: Set<NodeKey> = new Set();
-
-  reset(): void {
-    this.initialized = false;
-    this.displayedLabels.clear();
-  }
-
-  reuse(): Array<NodeKey> {
-    return Array.from(this.displayedLabels);
-  }
-
-  update(nodes: Array<NodeKey>): void {
-    this.initialized = true;
-    this.displayedLabels.clear();
-
-    for (let i = 0, l = nodes.length; i < l; i++) {
-      this.displayedLabels.add(nodes[i]);
+  organize(): void {
+    for (const k in this.cells) {
+      const cell = this.cells[k];
+      cell.sort(LabelCandidate.compare);
     }
   }
 
-  labelIsShown(node: NodeKey): boolean {
-    return this.displayedLabels.has(node);
+  getLabelsToDisplay(ratio: number): Array<NodeKey> {
+    const labels = [];
+
+    for (const k in this.cells) {
+      const cell = this.cells[k];
+
+      for (let i = 0; i < 1; i++) {
+        labels.push(cell[i].key);
+      }
+    }
+
+    return labels;
   }
 }
 
@@ -256,137 +194,137 @@ export class LabelGridState {
  * @param  {Array}            visibleNodes  - List of visible nodes as returned by the quadtree.
  * @return {Array}                          - The selected labels.
  */
-export function labelsToDisplayFromGrid(params: {
-  cache: Record<string, NodeDisplayData>;
-  camera: Camera;
-  cell: Dimensions | null;
-  dimensions: Dimensions;
-  graph: Graph;
-  gridState: LabelGridState;
-  visibleNodes: Array<NodeKey>;
-}): Array<NodeKey> {
-  const { cache, camera, cell, dimensions, graph, gridState, visibleNodes } = params;
+// export function labelsToDisplayFromGrid(params: {
+//   cache: Record<string, NodeDisplayData>;
+//   camera: Camera;
+//   cell: Dimensions | null;
+//   dimensions: Dimensions;
+//   graph: Graph;
+//   gridState: LabelGridState;
+//   visibleNodes: Array<NodeKey>;
+// }): Array<NodeKey> {
+//   const { cache, camera, cell, dimensions, graph, gridState, visibleNodes } = params;
 
-  // Camera state
-  const cameraState = camera.getState();
-  const previousCameraState = camera.getPreviousState();
-  let previousCamera: Camera | null = null;
-  let cameraMove: CameraMove | null = null;
-  let onlyPanning = false;
+//   // Camera state
+//   const cameraState = camera.getState();
+//   const previousCameraState = camera.getPreviousState();
+//   let previousCamera: Camera | null = null;
+//   let cameraMove: CameraMove | null = null;
+//   let onlyPanning = false;
 
-  if (previousCameraState) {
-    previousCamera = Camera.from(previousCameraState);
-    cameraMove = new CameraMove(previousCameraState, cameraState);
+//   if (previousCameraState) {
+//     previousCamera = Camera.from(previousCameraState);
+//     cameraMove = new CameraMove(previousCameraState, cameraState);
 
-    // If grid state was already initialized and the camera did not move
-    // We can just return the same labels as before
-    if (gridState.initialized && cameraMove.isStill) {
-      return gridState.reuse();
-    }
+//     // If grid state was already initialized and the camera did not move
+//     // We can just return the same labels as before
+//     if (gridState.initialized && cameraMove.isStill) {
+//       return gridState.reuse();
+//     }
 
-    const animationIsOver = !camera.isAnimated();
+//     const animationIsOver = !camera.isAnimated();
 
-    // If we are zooming, we wait until the animation is over to choose new labels
-    if (cameraMove.isZooming) {
-      if (!animationIsOver) return gridState.reuse();
-    }
+//     // If we are zooming, we wait until the animation is over to choose new labels
+//     if (cameraMove.isZooming) {
+//       if (!animationIsOver) return gridState.reuse();
+//     }
 
-    // If we are unzooming we quantize and also choose new labels when the animation is over
-    else if (cameraMove.isUnzooming) {
-      // Unzoom quantization, i.e. we only chose new labels by 5% ratio increments
-      // NOTE: I relinearize the ratio to avoid exponential quantization
-      const linearRatio = Math.pow(cameraState.ratio, 1 / 1.5);
-      const quantized = Math.trunc(linearRatio * 100) % 5 === 0;
+//     // If we are unzooming we quantize and also choose new labels when the animation is over
+//     else if (cameraMove.isUnzooming) {
+//       // Unzoom quantization, i.e. we only chose new labels by 5% ratio increments
+//       // NOTE: I relinearize the ratio to avoid exponential quantization
+//       const linearRatio = Math.pow(cameraState.ratio, 1 / 1.5);
+//       const quantized = Math.trunc(linearRatio * 100) % 5 === 0;
 
-      if (!quantized && !animationIsOver) {
-        return gridState.reuse();
-      }
-    }
+//       if (!quantized && !animationIsOver) {
+//         return gridState.reuse();
+//       }
+//     }
 
-    onlyPanning = cameraMove.hasSameRatio && cameraMove.isPanning;
-  } else {
-    // If grid state is already initialized and we are here, it means
-    // that the camera was not updated at all since last time (it can be
-    // the case when running layout and user has not yet interacted).
-    if (gridState.initialized) return gridState.reuse();
-  }
+//     onlyPanning = cameraMove.hasSameRatio && cameraMove.isPanning;
+//   } else {
+//     // If grid state is already initialized and we are here, it means
+//     // that the camera was not updated at all since last time (it can be
+//     // the case when running layout and user has not yet interacted).
+//     if (gridState.initialized) return gridState.reuse();
+//   }
 
-  // Selecting the correct cell to use
-  // NOTE: we use a larger cell when the graph is unzoomed to avoid
-  // visual cluttering by the labels, that are then larger than the graph itself
-  let cellToUse = cell ? cell : DEFAULT_CELL;
-  if (cameraState.ratio >= 1.3) cellToUse = DEFAULT_UNZOOMED_CELL;
+//   // Selecting the correct cell to use
+//   // NOTE: we use a larger cell when the graph is unzoomed to avoid
+//   // visual cluttering by the labels, that are then larger than the graph itself
+//   let cellToUse = cell ? cell : DEFAULT_CELL;
+//   if (cameraState.ratio >= 1.3) cellToUse = DEFAULT_UNZOOMED_CELL;
 
-  const index: SpatialGridIndex<LabelCandidate> = new SpatialGridIndex(dimensions, cellToUse);
+//   const index: SpatialGridIndex<LabelCandidate> = new SpatialGridIndex(dimensions, cellToUse);
 
-  for (let i = 0, l = visibleNodes.length; i < l; i++) {
-    const node = visibleNodes[i];
-    const data = cache[node];
-    const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
-    const pos = camera.framedGraphToViewport(dimensions, data);
-    const key = index.getKey(pos);
-    const isShownOnScreen = key !== undefined;
+//   for (let i = 0, l = visibleNodes.length; i < l; i++) {
+//     const node = visibleNodes[i];
+//     const data = cache[node];
+//     const newCandidate = new LabelCandidate(node, data.size, graph.degree(node), gridState.labelIsShown(node));
+//     const pos = camera.framedGraphToViewport(dimensions, data);
+//     const key = index.getKey(pos);
+//     const isShownOnScreen = key !== undefined;
 
-    if (!isShownOnScreen) continue;
+//     if (!isShownOnScreen) continue;
 
-    const currentCandidate = index.get(key as number);
+//     const currentCandidate = index.get(key as number);
 
-    // If we are panning while ratio remains the same, the label selection logic
-    // changes a bit to remain relevant.
-    // Basically, we need to keep all currently shown labels if their node is
-    // still visible. Then, we only need to consider adding labels of nodes that
-    // were not visible in the last frame, all while considering a short fringe
-    // outside of the frame in order to avoid weird apparitions/flickering.
-    if (onlyPanning) {
-      previousCamera = previousCamera as Camera;
+//     // If we are panning while ratio remains the same, the label selection logic
+//     // changes a bit to remain relevant.
+//     // Basically, we need to keep all currently shown labels if their node is
+//     // still visible. Then, we only need to consider adding labels of nodes that
+//     // were not visible in the last frame, all while considering a short fringe
+//     // outside of the frame in order to avoid weird apparitions/flickering.
+//     if (onlyPanning) {
+//       previousCamera = previousCamera as Camera;
 
-      if (!newCandidate.alreadyDisplayed) {
-        const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
-        const wasWithinBounds = index.isWithinBounds(previousPos);
+//       if (!newCandidate.alreadyDisplayed) {
+//         const previousPos = previousCamera.framedGraphToViewport(dimensions, data);
+//         const wasWithinBounds = index.isWithinBounds(previousPos);
 
-        if (wasWithinBounds) continue;
-      }
+//         if (wasWithinBounds) continue;
+//       }
 
-      if (!currentCandidate) {
-        index.set(key as number, newCandidate);
-      } else {
-        if (currentCandidate.alreadyDisplayed && newCandidate.alreadyDisplayed) {
-          if (newCandidate.isBetterThan(currentCandidate)) {
-            index.set(key as number, newCandidate);
-            index.keep(currentCandidate);
-          } else {
-            index.keep(newCandidate);
-          }
-        } else {
-          if (newCandidate.isBetterThan(currentCandidate)) {
-            index.set(key as number, newCandidate);
-          }
-        }
-      }
-    }
+//       if (!currentCandidate) {
+//         index.set(key as number, newCandidate);
+//       } else {
+//         if (currentCandidate.alreadyDisplayed && newCandidate.alreadyDisplayed) {
+//           if (newCandidate.isBetterThan(currentCandidate)) {
+//             index.set(key as number, newCandidate);
+//             index.keep(currentCandidate);
+//           } else {
+//             index.keep(newCandidate);
+//           }
+//         } else {
+//           if (newCandidate.isBetterThan(currentCandidate)) {
+//             index.set(key as number, newCandidate);
+//           }
+//         }
+//       }
+//     }
 
-    // In the general case, chosing a label is simply a matter of placing
-    // labels in a constant grid so that only one label per cell can be displayed
-    // In that case, nodes are ranked thusly:
-    //   1. If its label is already shown
-    //   2. By size
-    //   3. By degree
-    //   4. By key (which is arbitrary but deterministic)
-    else {
-      if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
-        index.set(key as number, newCandidate);
-      }
-    }
-  }
+//     // In the general case, chosing a label is simply a matter of placing
+//     // labels in a constant grid so that only one label per cell can be displayed
+//     // In that case, nodes are ranked thusly:
+//     //   1. If its label is already shown
+//     //   2. By size
+//     //   3. By degree
+//     //   4. By key (which is arbitrary but deterministic)
+//     else {
+//       if (!currentCandidate || newCandidate.isBetterThan(currentCandidate)) {
+//         index.set(key as number, newCandidate);
+//       }
+//     }
+//   }
 
-  // Collecting results
-  const results = index.collect((c) => c.key);
+//   // Collecting results
+//   const results = index.collect((c) => c.key);
 
-  // Updating grid state
-  gridState.update(results);
+//   // Updating grid state
+//   gridState.update(results);
 
-  return results;
-}
+//   return results;
+// }
 
 /**
  * Label heuristic selecting edge labels to display, based on displayed node

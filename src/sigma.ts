@@ -32,7 +32,7 @@ import {
   validateGraph,
   zIndexOrdering,
 } from "./utils";
-import { labelsToDisplayFromGrid, edgeLabelsToDisplayFromNodes, LabelGridState } from "./core/labels";
+import { edgeLabelsToDisplayFromNodes, LabelGrid } from "./core/labels";
 import { Settings, DEFAULT_SETTINGS, validateSettings } from "./settings";
 import { INodeProgram } from "./rendering/webgl/programs/common/node";
 import { IEdgeProgram } from "./rendering/webgl/programs/common/edge";
@@ -99,6 +99,7 @@ export default class Sigma extends EventEmitter {
   private webGLContexts: PlainObject<WebGLRenderingContext> = {};
   private activeListeners: PlainObject<Listener> = {};
   private quadtree: QuadTree = new QuadTree();
+  private labelGrid: LabelGrid = new LabelGrid();
   private nodeDataCache: Record<NodeKey, NodeDisplayData> = {};
   private edgeDataCache: Record<EdgeKey, EdgeDisplayData> = {};
   private nodeKeyToIndex: Record<NodeKey, number> = {};
@@ -116,8 +117,8 @@ export default class Sigma extends EventEmitter {
   private height = 0;
 
   // State
+  private displayedLabels: Set<NodeKey> = new Set();
   private highlightedNodes: Set<NodeKey> = new Set();
-  private labelGridState: LabelGridState = new LabelGridState();
   private hoveredNode: NodeKey | null = null;
   private renderFrame: number | null = null;
   private renderHighlightedNodesFrame: number | null = null;
@@ -507,11 +508,15 @@ export default class Sigma extends EventEmitter {
    * @return {Sigma}
    */
   private process(keepArrays = false): this {
-    const graph = this.graph,
-      settings = this.settings;
+    const graph = this.graph;
+    const settings = this.settings;
+    const dimensions = this.getDimensions();
 
     // Clearing the quad
     this.quadtree.clear();
+
+    // Resetting the label grid
+    this.labelGrid.resizeAndClear(dimensions, { width: 100, height: 100 });
 
     // Clear the highlightedNodes
     this.highlightedNodes = new Set();
@@ -566,6 +571,7 @@ export default class Sigma extends EventEmitter {
       this.normalizationFunction.applyTo(data);
 
       this.quadtree.add(node, data.x, 1 - data.y, data.size / this.width);
+      this.labelGrid.add(node, graph.degree(node), data.size, this.camera.framedGraphToViewport(dimensions, data));
 
       nodeProgram.process(data, data.hidden, i);
 
@@ -574,6 +580,8 @@ export default class Sigma extends EventEmitter {
 
       this.nodeKeyToIndex[node] = i;
     }
+
+    this.labelGrid.organize();
 
     // TODO: maybe we should bind and buffer as part of rendering?
     // We also need to find when it is useful and when it's really not
@@ -702,29 +710,11 @@ export default class Sigma extends EventEmitter {
     }
 
     // Selecting labels to draw
+    // TODO: drop gridsettings likewise
+    // TODO: optimize through visible nodes
     const gridSettings = this.settings.labelGrid;
 
-    const labelsToDisplay = labelsToDisplayFromGrid({
-      camera: this.camera,
-      cache: this.nodeDataCache,
-      cell: gridSettings.cell,
-      dimensions,
-      graph: this.graph,
-      gridState: this.labelGridState,
-      visibleNodes,
-    });
-
-    // const labelsToDisplay = labelsToDisplayFromGrid({
-    //   cache: this.nodeDataCache,
-    //   camera: this.camera,
-    //   cell: gridSettings.cell,
-    //   dimensions,
-    //   gridState: this.labelGridState,
-    //   fontSize: this.settings.labelSize,
-    //   graph: this.graph,
-    //   renderedSizeThreshold: gridSettings.renderedSizeThreshold,
-    //   visibleNodes,
-    // });
+    const labelsToDisplay = this.labelGrid.getLabelsToDisplay(cameraState.ratio);
 
     // Drawing labels
     const context = this.canvasContexts.labels;
@@ -757,6 +747,8 @@ export default class Sigma extends EventEmitter {
       );
     }
 
+    this.displayedLabels = new Set(this.displayedLabels);
+
     return this;
   }
 
@@ -779,7 +771,7 @@ export default class Sigma extends EventEmitter {
     const edgeLabelsToDisplay = edgeLabelsToDisplayFromNodes({
       graph: this.graph,
       hoveredNode: this.hoveredNode,
-      displayedNodeLabels: this.labelGridState.displayedLabels,
+      displayedNodeLabels: this.displayedLabels,
       highlightedNodes: this.highlightedNodes,
     });
 
@@ -1242,7 +1234,6 @@ export default class Sigma extends EventEmitter {
     this.edgeDataCache = {};
 
     this.highlightedNodes.clear();
-    this.labelGridState.reset();
 
     // Clearing frames
     if (this.renderFrame) {
