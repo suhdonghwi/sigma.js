@@ -170,6 +170,7 @@ export class LabelGrid {
     // TODO: memoize on pan
     // TODO: work on visible nodes to optimize? ^
     // TODO: adjust threshold lower, but increase cells a bit?
+    // TODO: hunt for geom issue in disguise
 
     const n = Math.ceil((DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth)) / ratio / ratio);
 
