@@ -169,6 +169,7 @@ export class LabelGrid {
     // TODO: always keep at least top N + on unzoomed => not necessary with threshold
     // TODO: memoize on pan
     // TODO: work on visible nodes to optimize? ^
+    // TODO: adjust threshold lower, but increase cells a bit?
 
     const n = Math.ceil((DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth)) / ratio / ratio);
 
