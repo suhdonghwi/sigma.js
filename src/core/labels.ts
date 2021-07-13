@@ -170,7 +170,7 @@ export class LabelGrid {
     // TODO: memoize on pan
     // TODO: work on visible nodes to optimize? ^
 
-    const n = DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth) / ratio / ratio;
+    const n = (DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth)) / ratio / ratio;
 
     const labels = [];
 
