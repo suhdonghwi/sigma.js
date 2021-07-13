@@ -170,7 +170,7 @@ export class LabelGrid {
     // TODO: memoize on pan
     // TODO: work on visible nodes to optimize? ^
 
-    const n = (DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth)) / ratio / ratio;
+    const n = Math.ceil((DEFAULT_MAX_DENSITY * (this.cellHeight * this.cellWidth)) / ratio / ratio);
 
     const labels = [];
 
@@ -181,7 +181,7 @@ export class LabelGrid {
         labels.push(cell[i].key);
       }
     }
-    console.log(ratio, n, labels.length);
+    // console.log(ratio, n, labels.length);
     return labels;
   }
 }
