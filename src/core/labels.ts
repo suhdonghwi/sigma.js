@@ -7,7 +7,7 @@
  */
 import Graph from "graphology";
 import { EdgeKey, NodeKey } from "graphology-types";
-import { Dimensions, Coordinates, NodeDisplayData, CameraState } from "../types";
+import { Dimensions, Coordinates, CameraState } from "../types";
 import Camera from "./camera";
 
 // TODO: it could be useful to reinstate a heuristic always keeping the biggest node's label shown
@@ -142,7 +142,8 @@ export class LabelGrid {
   }
 
   add(key: NodeKey, degree: number, size: number, pos: Coordinates): void {
-    const candidate = new LabelCandidate(key, size, degree);
+    // TODO: degree might not be advisable
+    const candidate = new LabelCandidate(key, size, 0);
 
     const index = this.getIndex(pos);
     let cell = this.cells[index];
@@ -163,16 +164,20 @@ export class LabelGrid {
   }
 
   getLabelsToDisplay(ratio: number): Array<NodeKey> {
+    // TODO: always keep at least top N + on unzoomed
+
+    const n = Math.max(1, Math.floor(Math.pow(1 / ratio, 1.7)));
+
     const labels = [];
 
     for (const k in this.cells) {
       const cell = this.cells[k];
 
-      for (let i = 0; i < 1; i++) {
+      for (let i = 0; i < Math.min(n, cell.length); i++) {
         labels.push(cell[i].key);
       }
     }
-
+    console.log(ratio, n, labels.length);
     return labels;
   }
 }

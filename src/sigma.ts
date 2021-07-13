@@ -511,11 +511,13 @@ export default class Sigma extends EventEmitter {
     const graph = this.graph;
     const settings = this.settings;
     const dimensions = this.getDimensions();
+    const nullCamera = new Camera();
 
     // Clearing the quad
     this.quadtree.clear();
 
     // Resetting the label grid
+    // TODO: it's probably better to do this explicitly or on resizes for layout and anims
     this.labelGrid.resizeAndClear(dimensions, { width: 100, height: 100 });
 
     // Clear the highlightedNodes
@@ -571,7 +573,7 @@ export default class Sigma extends EventEmitter {
       this.normalizationFunction.applyTo(data);
 
       this.quadtree.add(node, data.x, 1 - data.y, data.size / this.width);
-      this.labelGrid.add(node, graph.degree(node), data.size, this.camera.framedGraphToViewport(dimensions, data));
+      this.labelGrid.add(node, graph.degree(node), data.size, nullCamera.framedGraphToViewport(dimensions, data));
 
       nodeProgram.process(data, data.hidden, i);
 

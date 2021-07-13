@@ -93,7 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Labels
   labelGrid: {
     cell: null,
-    renderedSizeThreshold: -Infinity,
+    renderedSizeThreshold: 7,
   },
 
   // Reducers
