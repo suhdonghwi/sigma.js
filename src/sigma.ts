@@ -518,7 +518,10 @@ export default class Sigma extends EventEmitter {
 
     // Resetting the label grid
     // TODO: it's probably better to do this explicitly or on resizes for layout and anims
-    this.labelGrid.resizeAndClear(dimensions, settings.labelGridCellSize * PIXEL_RATIO);
+    this.labelGrid.resizeAndClear(
+      { width: dimensions.width * PIXEL_RATIO, height: dimensions.height * PIXEL_RATIO },
+      settings.labelGridCellSize * PIXEL_RATIO,
+    );
 
     // Clear the highlightedNodes
     this.highlightedNodes = new Set();
