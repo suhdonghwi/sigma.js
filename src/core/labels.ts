@@ -31,6 +31,22 @@ export function axisAlignedRectangularCollision(
 }
 
 /**
+ * Trivial but fast string hashing function used to "spread" labels that
+ * are sometimes "alpabetically" clustered.
+ */
+function hashString(s: string): number {
+  const l = s.length;
+  let h = 0;
+  let i = 0;
+
+  while (i < l) {
+    h = ((h << 5) - h + s.charCodeAt(i++)) | 0;
+  }
+
+  return h;
+}
+
+/**
  * Classes.
  */
 
@@ -42,10 +58,12 @@ export function axisAlignedRectangularCollision(
  */
 class LabelCandidate {
   key: NodeKey;
+  hash: number;
   size: number;
 
   constructor(key: NodeKey, size: number) {
     this.key = key;
+    this.hash = hashString(key as string);
     this.size = size;
   }
 
@@ -55,8 +73,8 @@ class LabelCandidate {
     if (first.size < second.size) return 1;
 
     // Then since no two nodes can have the same key, we deterministically
-    // tie-break by key
-    if (first.key > second.key) return 1;
+    // tie-break by hashed key
+    if (first.hash > second.hash) return 1;
 
     // NOTE: this comparator cannot return 0
     return -1;
