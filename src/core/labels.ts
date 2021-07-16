@@ -148,7 +148,7 @@ export class LabelGrid {
         labels.push(cell[i].key);
       }
     }
-    // console.log(ratio, labelsToDisplayPerCell, labels.length);
+    // console.log(ratio, labelsToDisplayPerCell, labels.length, this);
     return labels;
   }
 }
