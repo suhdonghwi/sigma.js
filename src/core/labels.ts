@@ -128,7 +128,6 @@ export class LabelGrid {
   }
 
   getLabelsToDisplay(ratio: number, density: number): Array<NodeKey> {
-    // TODO: always keep at least top N + on unzoomed => not necessary with threshold
     // TODO: work on visible nodes to optimize? ^ -> threshold outside so that memoization works?
     // TODO: adjust threshold lower, but increase cells a bit?
     // TODO: hunt for geom issue in disguise
