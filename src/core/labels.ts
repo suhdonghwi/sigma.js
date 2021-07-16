@@ -8,6 +8,7 @@
 import Graph from "graphology";
 import { EdgeKey, NodeKey } from "graphology-types";
 import { Dimensions, Coordinates } from "../types";
+import Camera from "./camera";
 
 /**
  * Helpers.
@@ -147,8 +148,37 @@ export class LabelGrid {
         labels.push(cell[i].key);
       }
     }
-    // console.log(ratio, labelsToDisplayPerCell, labels.length, this);
+    console.log(labelsToDisplayPerCell, labels.length, Object.keys(this.cells).length);
     return labels;
+  }
+
+  draw(context: CanvasRenderingContext2D, camera: Camera): void {
+    context.strokeStyle = "red";
+    context.lineWidth = 1;
+
+    for (let i = 0; i < this.columns; i++) {
+      const pos = camera.framedGraphToViewport(
+        { width: this.width, height: this.height },
+        { x: (i * this.cellSize) / this.width, y: 0 },
+      );
+
+      context.beginPath();
+      context.moveTo(pos.x, 0);
+      context.lineTo(pos.x, this.height);
+      context.stroke();
+    }
+
+    for (let j = 0; j < this.rows; j++) {
+      const pos = camera.framedGraphToViewport(
+        { width: this.width, height: this.height },
+        { x: 0, y: (j * this.cellSize) / this.height },
+      );
+
+      context.beginPath();
+      context.moveTo(0, pos.y);
+      context.lineTo(this.width, pos.y);
+      context.stroke();
+    }
   }
 }
 

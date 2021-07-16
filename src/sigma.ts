@@ -519,8 +519,8 @@ export default class Sigma extends EventEmitter {
     // Resetting the label grid
     // TODO: it's probably better to do this explicitly or on resizes for layout and anims
     this.labelGrid.resizeAndClear(
-      { width: dimensions.width * PIXEL_RATIO, height: dimensions.height * PIXEL_RATIO },
-      settings.labelGridCellSize * PIXEL_RATIO,
+      { width: dimensions.width * 1, height: dimensions.height * 1 },
+      settings.labelGridCellSize * 1,
     );
 
     // Clear the highlightedNodes
@@ -692,6 +692,8 @@ export default class Sigma extends EventEmitter {
     if (!this.settings.renderLabels) return this;
 
     const cameraState = this.camera.getState();
+
+    this.labelGrid.draw(this.canvasContexts.labels, this.camera);
 
     const dimensions = this.getDimensions();
 

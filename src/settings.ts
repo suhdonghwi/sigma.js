@@ -86,7 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Labels
   labelDensity: 0.5,
   labelGridCellSize: 100,
-  labelRenderedSizeThreshold: 4,
+  labelRenderedSizeThreshold: -Infinity,
 
   // Reducers
   nodeReducer: null,
