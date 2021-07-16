@@ -84,9 +84,9 @@ export const DEFAULT_SETTINGS: Settings = {
   edgeLabelWeight: "normal",
 
   // Labels
-  labelDensity: 0.5,
-  labelGridCellSize: 100,
-  labelRenderedSizeThreshold: -Infinity,
+  labelDensity: 0.07,
+  labelGridCellSize: 60,
+  labelRenderedSizeThreshold: 6,
 
   // Reducers
   nodeReducer: null,
