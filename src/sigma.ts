@@ -573,7 +573,7 @@ export default class Sigma extends EventEmitter {
       this.normalizationFunction.applyTo(data);
 
       this.quadtree.add(node, data.x, 1 - data.y, data.size / this.width);
-      this.labelGrid.add(node, graph.degree(node), data.size, nullCamera.framedGraphToViewport(dimensions, data));
+      this.labelGrid.add(node, data.size, nullCamera.framedGraphToViewport(dimensions, data));
 
       nodeProgram.process(data, data.hidden, i);
 
