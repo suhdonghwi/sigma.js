@@ -518,7 +518,7 @@ export default class Sigma extends EventEmitter {
 
     // Resetting the label grid
     // TODO: it's probably better to do this explicitly or on resizes for layout and anims
-    this.labelGrid.resizeAndClear(dimensions, { width: 100, height: 100 });
+    this.labelGrid.resizeAndClear(dimensions, settings.labelGridCellSize);
 
     // Clear the highlightedNodes
     this.highlightedNodes = new Set();
@@ -714,9 +714,7 @@ export default class Sigma extends EventEmitter {
     // Selecting labels to draw
     // TODO: drop gridsettings likewise
     // TODO: optimize through visible nodes
-    const gridSettings = this.settings.labelGrid;
-
-    const labelsToDisplay = this.labelGrid.getLabelsToDisplay(cameraState.ratio);
+    const labelsToDisplay = this.labelGrid.getLabelsToDisplay(cameraState.ratio, this.settings.labelDensity);
 
     // Drawing labels
     const context = this.canvasContexts.labels;
@@ -733,7 +731,7 @@ export default class Sigma extends EventEmitter {
       // TODO: this should be computed in the canvas components?
       const size = this.camera.scaleSize(data.size);
 
-      if (size < this.settings.labelGrid.renderedSizeThreshold) continue;
+      if (size < this.settings.labelRenderedSizeThreshold) continue;
 
       this.settings.labelRenderer(
         context,

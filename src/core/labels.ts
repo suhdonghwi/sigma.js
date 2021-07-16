@@ -10,11 +10,6 @@ import { EdgeKey, NodeKey } from "graphology-types";
 import { Dimensions, Coordinates } from "../types";
 
 /**
- * Constants.
- */
-const DEFAULT_MAX_DENSITY = 0.33;
-
-/**
  * Helpers.
  */
 export function axisAlignedRectangularCollision(
@@ -87,28 +82,26 @@ class LabelCandidate {
 export class LabelGrid {
   width = 0;
   height = 0;
-  cellWidth = 0;
-  cellHeight = 0;
+  cellSize = 0;
   columns = 0;
   rows = 0;
   cells: Record<number, Array<LabelCandidate>> = {};
 
-  resizeAndClear(dimensions: Dimensions, cell: Dimensions): void {
+  resizeAndClear(dimensions: Dimensions, cellSize: number): void {
     this.width = dimensions.width;
     this.height = dimensions.height;
 
-    this.cellWidth = cell.width;
-    this.cellHeight = cell.height;
+    this.cellSize = cellSize;
 
-    this.columns = Math.ceil(dimensions.width / cell.width);
-    this.rows = Math.ceil(dimensions.height / cell.height);
+    this.columns = Math.ceil(dimensions.width / cellSize);
+    this.rows = Math.ceil(dimensions.height / cellSize);
 
     this.cells = {};
   }
 
   private getIndex(pos: Coordinates): number {
-    const xIndex = Math.floor(pos.x / this.cellWidth);
-    const yIndex = Math.floor(pos.y / this.cellHeight);
+    const xIndex = Math.floor(pos.x / this.cellSize);
+    const yIndex = Math.floor(pos.y / this.cellSize);
 
     return xIndex * this.columns + yIndex;
   }
@@ -134,15 +127,15 @@ export class LabelGrid {
     }
   }
 
-  getLabelsToDisplay(ratio: number): Array<NodeKey> {
+  getLabelsToDisplay(ratio: number, density: number): Array<NodeKey> {
     // TODO: always keep at least top N + on unzoomed => not necessary with threshold
     // TODO: work on visible nodes to optimize? ^ -> threshold outside so that memoization works?
     // TODO: adjust threshold lower, but increase cells a bit?
     // TODO: hunt for geom issue in disguise
     // TODO: memoize while ratio does not move. method to force recompute
-    const cellArea = this.cellWidth * this.cellHeight;
+    const cellArea = this.cellSize * this.cellSize;
     const scaledCellArea = cellArea / ratio / ratio;
-    const scaledDensity = (scaledCellArea * DEFAULT_MAX_DENSITY) / cellArea;
+    const scaledDensity = (scaledCellArea * density) / cellArea;
 
     const labelsToDisplayPerCell = Math.ceil(scaledDensity);
 
