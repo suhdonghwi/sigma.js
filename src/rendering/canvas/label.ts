@@ -17,7 +17,7 @@ export default function drawLabel(
     font = settings.labelFont,
     weight = settings.labelWeight;
 
-  context.fillStyle = "#000";
+  context.fillStyle = settings.labelColor;
   context.font = `${weight} ${size}px ${font}`;
 
   context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);

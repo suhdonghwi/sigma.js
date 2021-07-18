@@ -3629,6 +3629,7 @@ exports.DEFAULT_SETTINGS = {
     defaultEdgeType: "line",
     labelFont: "Arial",
     labelSize: 14,
+    labelColor: "#000",
     labelWeight: "normal",
     edgeLabelFont: "Arial",
     edgeLabelSize: 14,
@@ -3667,7 +3668,7 @@ exports.DEFAULT_SETTINGS = {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 function drawLabel(context, data, settings) {
     var size = settings.labelSize, font = settings.labelFont, weight = settings.labelWeight;
-    context.fillStyle = "#000";
+    context.fillStyle = settings.labelColor;
     context.font = weight + " " + size + "px " + font;
     context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);
 }
