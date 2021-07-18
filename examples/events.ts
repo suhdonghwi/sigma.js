@@ -20,14 +20,14 @@ graph.nodes().forEach((node) => {
     label: getRandomName(),
     size: Math.max(4, Math.random() * 10),
     color: chroma.random().hex(),
-    zIndex: 0,
+    z: 0,
   });
 });
 
 graph.edges().forEach((edge) =>
   graph.mergeEdgeAttributes(edge, {
     color: "#ccc",
-    zIndex: 0,
+    z: 0,
   }),
 );
 
@@ -35,13 +35,13 @@ let highlighedNodes = new Set();
 let highlighedEdges = new Set();
 
 const nodeReducer = (node: NodeKey, data: Attributes) => {
-  if (highlighedNodes.has(node)) return { ...data, color: "#f00", zIndex: 1 };
+  if (highlighedNodes.has(node)) return { ...data, color: "#f00", z: 1 };
 
   return data;
 };
 
 const edgeReducer = (edge: EdgeKey, data: Attributes) => {
-  if (highlighedEdges.has(edge)) return { ...data, color: "#f00", zIndex: 1 };
+  if (highlighedEdges.has(edge)) return { ...data, color: "#f00", z: 1 };
 
   return data;
 };
