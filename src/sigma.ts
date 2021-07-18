@@ -535,15 +535,6 @@ export default class Sigma extends EventEmitter {
 
     let nodes: NodeKey[] = graph.nodes();
 
-    // Handling node z-index
-    // TODO: z-index needs us to compute display data before hand
-    if (this.settings.zIndex)
-      nodes = zIndexOrdering<NodeKey>(
-        this.nodeExtent.z,
-        (node: NodeKey): number => graph.getNodeAttribute(node, "z"),
-        nodes,
-      );
-
     for (let i = 0, l = nodes.length; i < l; i++) {
       const node = nodes[i];
 
@@ -562,6 +553,20 @@ export default class Sigma extends EventEmitter {
       const data = applyNodeDefaults(this.settings, node, attr);
 
       this.nodeDataCache[node] = data;
+    }
+
+    // Handling node z-index
+    // TODO: z-index needs us to compute display data before hand
+    if (this.settings.zIndex)
+      nodes = zIndexOrdering<NodeKey>(
+        this.nodeExtent.z,
+        (node: NodeKey): number => (this.nodeDataCache[node] as any).z,
+        nodes,
+      );
+
+    for (let i = 0, l = nodes.length; i < l; i++) {
+      const node = nodes[i];
+      const data = this.nodeDataCache[node];
 
       this.normalizationFunction.applyTo(data);
 
@@ -586,10 +591,6 @@ export default class Sigma extends EventEmitter {
 
     let edges: EdgeKey[] = graph.edges();
 
-    // Handling edge z-index
-    if (this.settings.zIndex && this.edgeExtent)
-      edges = zIndexOrdering(this.edgeExtent.z, (edge: EdgeKey): number => graph.getEdgeAttribute(edge, "z"), edges);
-
     for (let i = 0, l = edges.length; i < l; i++) {
       const edge = edges[i];
 
@@ -605,8 +606,17 @@ export default class Sigma extends EventEmitter {
       if (settings.edgeReducer) attr = settings.edgeReducer(edge, attr);
 
       const data = applyEdgeDefaults(this.settings, edge, attr);
-
       this.edgeDataCache[edge] = data;
+    }
+
+    // Handling edge z-index
+    if (this.settings.zIndex && this.edgeExtent) {
+      edges = zIndexOrdering(this.edgeExtent.z, (edge: EdgeKey): number => (this.edgeDataCache[edge] as any).z, edges);
+    }
+
+    for (let i = 0, l = edges.length; i < l; i++) {
+      const edge = edges[i];
+      const data = this.edgeDataCache[edge];
 
       const extremities = graph.extremities(edge),
         sourceData = this.nodeDataCache[extremities[0]],
