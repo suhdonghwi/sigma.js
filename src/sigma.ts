@@ -724,6 +724,7 @@ export default class Sigma extends EventEmitter {
       graph: this.graph,
       renderedSizeThreshold: gridSettings.renderedSizeThreshold,
       visibleNodes,
+      labelManual: this.settings.labelManual,
     });
 
     // Drawing labels

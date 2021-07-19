@@ -68,6 +68,7 @@ export function labelsToDisplayFromGrid(params: {
   graph: Graph;
   renderedSizeThreshold: number;
   visibleNodes: NodeKey[];
+  labelManual: boolean;
 }): NodeKey[] {
   const {
     cache,
@@ -79,164 +80,171 @@ export function labelsToDisplayFromGrid(params: {
     graph,
     renderedSizeThreshold = -Infinity,
     visibleNodes,
+    labelManual,
   } = params;
 
-  const cameraState = camera.getState(),
-    previousCameraState = camera.getPreviousState();
-
-  const previousCamera = new Camera();
-  previousCamera.setState(previousCameraState);
-
-  // State
-  const zooming = cameraState.ratio < previousCameraState.ratio;
-  const panning = cameraState.x !== previousCameraState.x || cameraState.y !== previousCameraState.y;
-  const unzooming = cameraState.ratio > previousCameraState.ratio; // NOTE: unzooming is not !zooming since the zoom can remain constant
-  const unzoomedPanning = panning && !zooming && !unzooming && cameraState.ratio >= 1;
-  const zoomedPanning = panning && displayedLabels.size && !zooming && !unzooming;
-
-  let shouldReturnSameLabels = false;
-
-  // Trick to discretize unzooming, i.e. we consider new labels when unzooming
-  // only every 5% increment so that labels won't blink too much
-  if (unzooming && Math.trunc(cameraState.ratio * 100) % 5 !== 0) shouldReturnSameLabels = true;
-
-  // If panning while unzoomed, we shouldn't change label selection
-  if (unzoomedPanning && displayedLabels.size !== 0) shouldReturnSameLabels = true;
-
-  // When unzoomed & zooming
-  if (zooming && cameraState.ratio >= 1) shouldReturnSameLabels = true;
-
-  if (shouldReturnSameLabels) return Array.from(displayedLabels);
-
-  // Adapting cell dimensions
-  let cell = userCell ? userCell : DEFAULT_CELL;
-
-  if (cameraState.ratio >= 1.3) cell = DEFAULT_UNZOOMED_CELL;
-
-  const cwr = dimensions.width % cell.width;
-  const cellWidth = cell.width + cwr / Math.floor(dimensions.width / cell.width);
-
-  const chr = dimensions.height % cell.height;
-  const cellHeight = cell.height + chr / Math.floor(dimensions.height / cell.height);
-
-  const adjustedWidth = dimensions.width + cellWidth,
-    adjustedHeight = dimensions.height + cellHeight,
-    adjustedX = -cellWidth,
-    adjustedY = -cellHeight;
-
-  const panningWidth = dimensions.width + cellWidth / 2,
-    panningHeight = dimensions.height + cellHeight / 2,
-    panningX = -(cellWidth / 2),
-    panningY = -(cellHeight / 2);
-
   const worthyLabels: Array<NodeKey> = [];
-  const grid: Record<string, NodeKey> = {};
 
-  let maxSize = -Infinity,
-    biggestNode: NodeKey | null = null;
+  if (labelManual) {
+    graph.forEachNode(key => {
+      if (graph.getNodeAttribute(key, "showLabel") === true) worthyLabels.push(key);
+    });
+  } else {
+    const cameraState = camera.getState(),
+      previousCameraState = camera.getPreviousState();
 
-  for (let i = 0, l = visibleNodes.length; i < l; i++) {
-    const node = visibleNodes[i],
-      nodeData = cache[node];
+    const previousCamera = new Camera();
+    previousCamera.setState(previousCameraState);
 
-    // We filter hidden nodes
-    if (nodeData.hidden) continue;
+    // State
+    const zooming = cameraState.ratio < previousCameraState.ratio;
+    const panning = cameraState.x !== previousCameraState.x || cameraState.y !== previousCameraState.y;
+    const unzooming = cameraState.ratio > previousCameraState.ratio; // NOTE: unzooming is not !zooming since the zoom can remain constant
+    const unzoomedPanning = panning && !zooming && !unzooming && cameraState.ratio >= 1;
+    const zoomedPanning = panning && displayedLabels.size && !zooming && !unzooming;
 
-    // We filter nodes having a rendered size less than a certain thresold
-    if (camera.scaleSize(nodeData.size) < renderedSizeThreshold) continue;
+    let shouldReturnSameLabels = false;
 
-    // Finding our node's cell in the grid
-    const pos = camera.framedGraphToViewport(dimensions, nodeData);
+    // Trick to discretize unzooming, i.e. we consider new labels when unzooming
+    // only every 5% increment so that labels won't blink too much
+    if (unzooming && Math.trunc(cameraState.ratio * 100) % 5 !== 0) shouldReturnSameLabels = true;
 
-    // Node is not actually visible on screen
-    // NOTE: can optimize margin on the right side (only if we know where the labels go)
-    if (pos.x < adjustedX || pos.x > adjustedWidth || pos.y < adjustedY || pos.y > adjustedHeight) continue;
+    // If panning while unzoomed, we shouldn't change label selection
+    if (unzoomedPanning && displayedLabels.size !== 0) shouldReturnSameLabels = true;
 
-    // Keeping track of the maximum node size for certain cases
-    if (nodeData.size > maxSize) {
-      maxSize = nodeData.size;
-      biggestNode = node;
-    }
+    // When unzoomed & zooming
+    if (zooming && cameraState.ratio >= 1) shouldReturnSameLabels = true;
 
-    // If panning when zoomed, we consider only displayed labels and newly
-    // visible nodes
-    if (zoomedPanning) {
-      const ppos = previousCamera.framedGraphToViewport(dimensions, nodeData);
+    if (shouldReturnSameLabels) return Array.from(displayedLabels);
+// Adapting cell dimensions
+    let cell = userCell ? userCell : DEFAULT_CELL;
 
-      // Was node visible earlier?
-      if (ppos.x >= panningX && ppos.x <= panningWidth && ppos.y >= panningY && ppos.y <= panningHeight) {
-        // Was the label displayed?
-        if (!displayedLabels.has(node)) continue;
+    if (cameraState.ratio >= 1.3) cell = DEFAULT_UNZOOMED_CELL;
+
+    const cwr = dimensions.width % cell.width;
+    const cellWidth = cell.width + cwr / Math.floor(dimensions.width / cell.width);
+
+    const chr = dimensions.height % cell.height;
+    const cellHeight = cell.height + chr / Math.floor(dimensions.height / cell.height);
+
+    const adjustedWidth = dimensions.width + cellWidth,
+      adjustedHeight = dimensions.height + cellHeight,
+      adjustedX = -cellWidth,
+      adjustedY = -cellHeight;
+
+    const panningWidth = dimensions.width + cellWidth / 2,
+      panningHeight = dimensions.height + cellHeight / 2,
+      panningX = -(cellWidth / 2),
+      panningY = -(cellHeight / 2);
+
+    const grid: Record<string, NodeKey> = {};
+
+    let maxSize = -Infinity,
+      biggestNode: NodeKey | null = null;
+
+    for (let i = 0, l = visibleNodes.length; i < l; i++) {
+      const node = visibleNodes[i],
+        nodeData = cache[node];
+
+      // We filter hidden nodes
+      if (nodeData.hidden) continue;
+
+      // We filter nodes having a rendered size less than a certain thresold
+      if (camera.scaleSize(nodeData.size) < renderedSizeThreshold) continue;
+
+      // Finding our node's cell in the grid
+      const pos = camera.framedGraphToViewport(dimensions, nodeData);
+
+      // Node is not actually visible on screen
+      // NOTE: can optimize margin on the right side (only if we know where the labels go)
+      if (pos.x < adjustedX || pos.x > adjustedWidth || pos.y < adjustedY || pos.y > adjustedHeight) continue;
+
+      // Keeping track of the maximum node size for certain cases
+      if (nodeData.size > maxSize) {
+        maxSize = nodeData.size;
+        biggestNode = node;
       }
-    }
 
-    const xKey = Math.floor(pos.x / cellWidth),
-      yKey = Math.floor(pos.y / cellHeight);
+      // If panning when zoomed, we consider only displayed labels and newly
+      // visible nodes
+      if (zoomedPanning) {
+        const ppos = previousCamera.framedGraphToViewport(dimensions, nodeData);
 
-    const key = `${xKey}§${yKey}`;
-
-    if (typeof grid[key] === "undefined") {
-      // This cell is not yet occupied
-      grid[key] = node;
-    } else {
-      // We must solve a conflict in this cell
-      const currentNode = grid[key],
-        currentNodeData = cache[currentNode];
-
-      // We prefer already displayed labels
-      if (displayedLabels.size > 0) {
-        const n1 = displayedLabels.has(node),
-          n2 = displayedLabels.has(currentNode);
-
-        if (!n1 && n2) {
-          continue;
-        }
-
-        if (n1 && !n2) {
-          grid[key] = node;
-          continue;
-        }
-
-        if ((zoomedPanning || zooming) && n1 && n2) {
-          worthyLabels.push(node);
-          continue;
+        // Was node visible earlier?
+        if (ppos.x >= panningX && ppos.x <= panningWidth && ppos.y >= panningY && ppos.y <= panningHeight) {
+          // Was the label displayed?
+          if (!displayedLabels.has(node)) continue;
         }
       }
 
-      // In case of size & degree equality, we use the node's key so that the
-      // process remains deterministic
-      let won = false;
+      const xKey = Math.floor(pos.x / cellWidth),
+        yKey = Math.floor(pos.y / cellHeight);
 
-      if (nodeData.size > currentNodeData.size) {
-        won = true;
-      } else if (nodeData.size === currentNodeData.size) {
-        const nodeDegree = graph.degree(node),
-          currentNodeDegree = graph.degree(currentNode);
+      const key = `${xKey}§${yKey}`;
 
-        if (nodeDegree > currentNodeDegree) {
+      if (typeof grid[key] === "undefined") {
+        // This cell is not yet occupied
+        grid[key] = node;
+      } else {
+        // We must solve a conflict in this cell
+        const currentNode = grid[key],
+          currentNodeData = cache[currentNode];
+
+        // We prefer already displayed labels
+        if (displayedLabels.size > 0) {
+          const n1 = displayedLabels.has(node),
+            n2 = displayedLabels.has(currentNode);
+
+          if (!n1 && n2) {
+            continue;
+          }
+
+          if (n1 && !n2) {
+            grid[key] = node;
+            continue;
+          }
+
+          if ((zoomedPanning || zooming) && n1 && n2) {
+            worthyLabels.push(node);
+            continue;
+          }
+        }
+
+        // In case of size & degree equality, we use the node's key so that the
+        // process remains deterministic
+        let won = false;
+
+        if (nodeData.size > currentNodeData.size) {
           won = true;
-        } else if (nodeDegree === currentNodeDegree) {
-          if (node > currentNode) won = true;
+        } else if (nodeData.size === currentNodeData.size) {
+          const nodeDegree = graph.degree(node),
+            currentNodeDegree = graph.degree(currentNode);
+
+          if (nodeDegree > currentNodeDegree) {
+            won = true;
+          } else if (nodeDegree === currentNodeDegree) {
+            if (node > currentNode) won = true;
+          }
         }
+
+        if (won) grid[key] = node;
       }
-
-      if (won) grid[key] = node;
     }
+
+    // Compiling the labels
+    let biggestNodeShown: boolean = worthyLabels.some((node) => node === biggestNode);
+
+    for (const key in grid) {
+      const node = grid[key];
+
+      if (node === biggestNode) biggestNodeShown = true;
+
+      worthyLabels.push(node);
+    }
+
+    // Always keeping biggest node shown on screen
+    if (!biggestNodeShown && biggestNode) worthyLabels.push(biggestNode);
   }
-
-  // Compiling the labels
-  let biggestNodeShown: boolean = worthyLabels.some((node) => node === biggestNode);
-
-  for (const key in grid) {
-    const node = grid[key];
-
-    if (node === biggestNode) biggestNodeShown = true;
-
-    worthyLabels.push(node);
-  }
-
-  // Always keeping biggest node shown on screen
-  if (!biggestNodeShown && biggestNode) worthyLabels.push(biggestNode);
 
   // Basic anti-collision
   const collisions = new Set();

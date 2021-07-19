@@ -2624,6 +2624,7 @@ var Sigma = /** @class */ (function (_super) {
      * @return {Sigma}
      */
     Sigma.prototype.process = function (keepArrays) {
+        var _this = this;
         if (keepArrays === void 0) { keepArrays = false; }
         var graph = this.graph, settings = this.settings;
         // Clearing the quad
@@ -2643,10 +2644,6 @@ var Sigma = /** @class */ (function (_super) {
         if (!keepArrays)
             nodeProgram.allocate(graph.order);
         var nodes = graph.nodes();
-        // Handling node z-index
-        // TODO: z-index needs us to compute display data before hand
-        if (this.settings.zIndex)
-            nodes = utils_1.zIndexOrdering(this.nodeExtent.z, function (node) { return graph.getNodeAttribute(node, "z"); }, nodes);
         for (var i = 0, l = nodes.length; i < l; i++) {
             var node = nodes[i];
             // Node display data resolution:
@@ -2661,6 +2658,14 @@ var Sigma = /** @class */ (function (_super) {
                 attr = settings.nodeReducer(node, attr);
             var data = applyNodeDefaults(this.settings, node, attr);
             this.nodeDataCache[node] = data;
+        }
+        // Handling node z-index
+        // TODO: z-index needs us to compute display data before hand
+        if (this.settings.zIndex)
+            nodes = utils_1.zIndexOrdering(this.nodeExtent.z, function (node) { return _this.nodeDataCache[node].z; }, nodes);
+        for (var i = 0, l = nodes.length; i < l; i++) {
+            var node = nodes[i];
+            var data = this.nodeDataCache[node];
             this.normalizationFunction.applyTo(data);
             this.quadtree.add(node, data.x, 1 - data.y, data.size / this.width);
             nodeProgram.process(data, data.hidden, i);
@@ -2677,9 +2682,6 @@ var Sigma = /** @class */ (function (_super) {
         if (!keepArrays)
             edgeProgram.allocate(graph.size);
         var edges = graph.edges();
-        // Handling edge z-index
-        if (this.settings.zIndex && this.edgeExtent)
-            edges = utils_1.zIndexOrdering(this.edgeExtent.z, function (edge) { return graph.getEdgeAttribute(edge, "z"); }, edges);
         for (var i = 0, l = edges.length; i < l; i++) {
             var edge = edges[i];
             // Edge display data resolution:
@@ -2693,6 +2695,14 @@ var Sigma = /** @class */ (function (_super) {
                 attr = settings.edgeReducer(edge, attr);
             var data = applyEdgeDefaults(this.settings, edge, attr);
             this.edgeDataCache[edge] = data;
+        }
+        // Handling edge z-index
+        if (this.settings.zIndex && this.edgeExtent) {
+            edges = utils_1.zIndexOrdering(this.edgeExtent.z, function (edge) { return _this.edgeDataCache[edge].z; }, edges);
+        }
+        for (var i = 0, l = edges.length; i < l; i++) {
+            var edge = edges[i];
+            var data = this.edgeDataCache[edge];
             var extremities = graph.extremities(edge), sourceData = this.nodeDataCache[extremities[0]], targetData = this.nodeDataCache[extremities[1]];
             var hidden = data.hidden || sourceData.hidden || targetData.hidden;
             edgeProgram.process(sourceData, targetData, data, hidden, i);
@@ -2777,6 +2787,7 @@ var Sigma = /** @class */ (function (_super) {
             graph: this.graph,
             renderedSizeThreshold: gridSettings.renderedSizeThreshold,
             visibleNodes: visibleNodes,
+            labelManual: this.settings.labelManual,
         });
         // Drawing labels
         var context = this.canvasContexts.labels;
@@ -3389,127 +3400,135 @@ function collision(x1, y1, w1, h1, x2, y2, w2, h2) {
  * @return {Array}                         - The selected labels.
  */
 function labelsToDisplayFromGrid(params) {
-    var cache = params.cache, camera = params.camera, userCell = params.cell, dimensions = params.dimensions, displayedLabels = params.displayedLabels, _a = params.fontSize, fontSize = _a === void 0 ? 14 : _a, graph = params.graph, _b = params.renderedSizeThreshold, renderedSizeThreshold = _b === void 0 ? -Infinity : _b, visibleNodes = params.visibleNodes;
-    var cameraState = camera.getState(), previousCameraState = camera.getPreviousState();
-    var previousCamera = new camera_1.default();
-    previousCamera.setState(previousCameraState);
-    // State
-    var zooming = cameraState.ratio < previousCameraState.ratio;
-    var panning = cameraState.x !== previousCameraState.x || cameraState.y !== previousCameraState.y;
-    var unzooming = cameraState.ratio > previousCameraState.ratio; // NOTE: unzooming is not !zooming since the zoom can remain constant
-    var unzoomedPanning = panning && !zooming && !unzooming && cameraState.ratio >= 1;
-    var zoomedPanning = panning && displayedLabels.size && !zooming && !unzooming;
-    var shouldReturnSameLabels = false;
-    // Trick to discretize unzooming, i.e. we consider new labels when unzooming
-    // only every 5% increment so that labels won't blink too much
-    if (unzooming && Math.trunc(cameraState.ratio * 100) % 5 !== 0)
-        shouldReturnSameLabels = true;
-    // If panning while unzoomed, we shouldn't change label selection
-    if (unzoomedPanning && displayedLabels.size !== 0)
-        shouldReturnSameLabels = true;
-    // When unzoomed & zooming
-    if (zooming && cameraState.ratio >= 1)
-        shouldReturnSameLabels = true;
-    if (shouldReturnSameLabels)
-        return Array.from(displayedLabels);
-    // Adapting cell dimensions
-    var cell = userCell ? userCell : DEFAULT_CELL;
-    if (cameraState.ratio >= 1.3)
-        cell = DEFAULT_UNZOOMED_CELL;
-    var cwr = dimensions.width % cell.width;
-    var cellWidth = cell.width + cwr / Math.floor(dimensions.width / cell.width);
-    var chr = dimensions.height % cell.height;
-    var cellHeight = cell.height + chr / Math.floor(dimensions.height / cell.height);
-    var adjustedWidth = dimensions.width + cellWidth, adjustedHeight = dimensions.height + cellHeight, adjustedX = -cellWidth, adjustedY = -cellHeight;
-    var panningWidth = dimensions.width + cellWidth / 2, panningHeight = dimensions.height + cellHeight / 2, panningX = -(cellWidth / 2), panningY = -(cellHeight / 2);
+    var cache = params.cache, camera = params.camera, userCell = params.cell, dimensions = params.dimensions, displayedLabels = params.displayedLabels, _a = params.fontSize, fontSize = _a === void 0 ? 14 : _a, graph = params.graph, _b = params.renderedSizeThreshold, renderedSizeThreshold = _b === void 0 ? -Infinity : _b, visibleNodes = params.visibleNodes, labelManual = params.labelManual;
     var worthyLabels = [];
-    var grid = {};
-    var maxSize = -Infinity, biggestNode = null;
-    for (var i = 0, l = visibleNodes.length; i < l; i++) {
-        var node = visibleNodes[i], nodeData = cache[node];
-        // We filter hidden nodes
-        if (nodeData.hidden)
-            continue;
-        // We filter nodes having a rendered size less than a certain thresold
-        if (camera.scaleSize(nodeData.size) < renderedSizeThreshold)
-            continue;
-        // Finding our node's cell in the grid
-        var pos = camera.framedGraphToViewport(dimensions, nodeData);
-        // Node is not actually visible on screen
-        // NOTE: can optimize margin on the right side (only if we know where the labels go)
-        if (pos.x < adjustedX || pos.x > adjustedWidth || pos.y < adjustedY || pos.y > adjustedHeight)
-            continue;
-        // Keeping track of the maximum node size for certain cases
-        if (nodeData.size > maxSize) {
-            maxSize = nodeData.size;
-            biggestNode = node;
-        }
-        // If panning when zoomed, we consider only displayed labels and newly
-        // visible nodes
-        if (zoomedPanning) {
-            var ppos = previousCamera.framedGraphToViewport(dimensions, nodeData);
-            // Was node visible earlier?
-            if (ppos.x >= panningX && ppos.x <= panningWidth && ppos.y >= panningY && ppos.y <= panningHeight) {
-                // Was the label displayed?
-                if (!displayedLabels.has(node))
-                    continue;
+    if (labelManual) {
+        graph.forEachNode(function (key) {
+            if (graph.getNodeAttribute(key, "showLabel") === true)
+                worthyLabels.push(key);
+        });
+    }
+    else {
+        var cameraState = camera.getState(), previousCameraState = camera.getPreviousState();
+        var previousCamera = new camera_1.default();
+        previousCamera.setState(previousCameraState);
+        // State
+        var zooming = cameraState.ratio < previousCameraState.ratio;
+        var panning = cameraState.x !== previousCameraState.x || cameraState.y !== previousCameraState.y;
+        var unzooming = cameraState.ratio > previousCameraState.ratio; // NOTE: unzooming is not !zooming since the zoom can remain constant
+        var unzoomedPanning = panning && !zooming && !unzooming && cameraState.ratio >= 1;
+        var zoomedPanning = panning && displayedLabels.size && !zooming && !unzooming;
+        var shouldReturnSameLabels = false;
+        // Trick to discretize unzooming, i.e. we consider new labels when unzooming
+        // only every 5% increment so that labels won't blink too much
+        if (unzooming && Math.trunc(cameraState.ratio * 100) % 5 !== 0)
+            shouldReturnSameLabels = true;
+        // If panning while unzoomed, we shouldn't change label selection
+        if (unzoomedPanning && displayedLabels.size !== 0)
+            shouldReturnSameLabels = true;
+        // When unzoomed & zooming
+        if (zooming && cameraState.ratio >= 1)
+            shouldReturnSameLabels = true;
+        if (shouldReturnSameLabels)
+            return Array.from(displayedLabels);
+        // Adapting cell dimensions
+        var cell = userCell ? userCell : DEFAULT_CELL;
+        if (cameraState.ratio >= 1.3)
+            cell = DEFAULT_UNZOOMED_CELL;
+        var cwr = dimensions.width % cell.width;
+        var cellWidth = cell.width + cwr / Math.floor(dimensions.width / cell.width);
+        var chr = dimensions.height % cell.height;
+        var cellHeight = cell.height + chr / Math.floor(dimensions.height / cell.height);
+        var adjustedWidth = dimensions.width + cellWidth, adjustedHeight = dimensions.height + cellHeight, adjustedX = -cellWidth, adjustedY = -cellHeight;
+        var panningWidth = dimensions.width + cellWidth / 2, panningHeight = dimensions.height + cellHeight / 2, panningX = -(cellWidth / 2), panningY = -(cellHeight / 2);
+        var grid = {};
+        var maxSize = -Infinity, biggestNode_1 = null;
+        for (var i = 0, l = visibleNodes.length; i < l; i++) {
+            var node = visibleNodes[i], nodeData = cache[node];
+            // We filter hidden nodes
+            if (nodeData.hidden)
+                continue;
+            // We filter nodes having a rendered size less than a certain thresold
+            if (camera.scaleSize(nodeData.size) < renderedSizeThreshold)
+                continue;
+            // Finding our node's cell in the grid
+            var pos = camera.framedGraphToViewport(dimensions, nodeData);
+            // Node is not actually visible on screen
+            // NOTE: can optimize margin on the right side (only if we know where the labels go)
+            if (pos.x < adjustedX || pos.x > adjustedWidth || pos.y < adjustedY || pos.y > adjustedHeight)
+                continue;
+            // Keeping track of the maximum node size for certain cases
+            if (nodeData.size > maxSize) {
+                maxSize = nodeData.size;
+                biggestNode_1 = node;
             }
-        }
-        var xKey = Math.floor(pos.x / cellWidth), yKey = Math.floor(pos.y / cellHeight);
-        var key = xKey + "\u00A7" + yKey;
-        if (typeof grid[key] === "undefined") {
-            // This cell is not yet occupied
-            grid[key] = node;
-        }
-        else {
-            // We must solve a conflict in this cell
-            var currentNode = grid[key], currentNodeData = cache[currentNode];
-            // We prefer already displayed labels
-            if (displayedLabels.size > 0) {
-                var n1 = displayedLabels.has(node), n2 = displayedLabels.has(currentNode);
-                if (!n1 && n2) {
-                    continue;
-                }
-                if (n1 && !n2) {
-                    grid[key] = node;
-                    continue;
-                }
-                if ((zoomedPanning || zooming) && n1 && n2) {
-                    worthyLabels.push(node);
-                    continue;
+            // If panning when zoomed, we consider only displayed labels and newly
+            // visible nodes
+            if (zoomedPanning) {
+                var ppos = previousCamera.framedGraphToViewport(dimensions, nodeData);
+                // Was node visible earlier?
+                if (ppos.x >= panningX && ppos.x <= panningWidth && ppos.y >= panningY && ppos.y <= panningHeight) {
+                    // Was the label displayed?
+                    if (!displayedLabels.has(node))
+                        continue;
                 }
             }
-            // In case of size & degree equality, we use the node's key so that the
-            // process remains deterministic
-            var won = false;
-            if (nodeData.size > currentNodeData.size) {
-                won = true;
+            var xKey = Math.floor(pos.x / cellWidth), yKey = Math.floor(pos.y / cellHeight);
+            var key = xKey + "\u00A7" + yKey;
+            if (typeof grid[key] === "undefined") {
+                // This cell is not yet occupied
+                grid[key] = node;
             }
-            else if (nodeData.size === currentNodeData.size) {
-                var nodeDegree = graph.degree(node), currentNodeDegree = graph.degree(currentNode);
-                if (nodeDegree > currentNodeDegree) {
+            else {
+                // We must solve a conflict in this cell
+                var currentNode = grid[key], currentNodeData = cache[currentNode];
+                // We prefer already displayed labels
+                if (displayedLabels.size > 0) {
+                    var n1 = displayedLabels.has(node), n2 = displayedLabels.has(currentNode);
+                    if (!n1 && n2) {
+                        continue;
+                    }
+                    if (n1 && !n2) {
+                        grid[key] = node;
+                        continue;
+                    }
+                    if ((zoomedPanning || zooming) && n1 && n2) {
+                        worthyLabels.push(node);
+                        continue;
+                    }
+                }
+                // In case of size & degree equality, we use the node's key so that the
+                // process remains deterministic
+                var won = false;
+                if (nodeData.size > currentNodeData.size) {
                     won = true;
                 }
-                else if (nodeDegree === currentNodeDegree) {
-                    if (node > currentNode)
+                else if (nodeData.size === currentNodeData.size) {
+                    var nodeDegree = graph.degree(node), currentNodeDegree = graph.degree(currentNode);
+                    if (nodeDegree > currentNodeDegree) {
                         won = true;
+                    }
+                    else if (nodeDegree === currentNodeDegree) {
+                        if (node > currentNode)
+                            won = true;
+                    }
                 }
+                if (won)
+                    grid[key] = node;
             }
-            if (won)
-                grid[key] = node;
         }
+        // Compiling the labels
+        var biggestNodeShown = worthyLabels.some(function (node) { return node === biggestNode_1; });
+        for (var key in grid) {
+            var node = grid[key];
+            if (node === biggestNode_1)
+                biggestNodeShown = true;
+            worthyLabels.push(node);
+        }
+        // Always keeping biggest node shown on screen
+        if (!biggestNodeShown && biggestNode_1)
+            worthyLabels.push(biggestNode_1);
     }
-    // Compiling the labels
-    var biggestNodeShown = worthyLabels.some(function (node) { return node === biggestNode; });
-    for (var key in grid) {
-        var node = grid[key];
-        if (node === biggestNode)
-            biggestNodeShown = true;
-        worthyLabels.push(node);
-    }
-    // Always keeping biggest node shown on screen
-    if (!biggestNodeShown && biggestNode)
-        worthyLabels.push(biggestNode);
     // Basic anti-collision
     var collisions = new Set();
     for (var i = 0, l = worthyLabels.length; i < l; i++) {
@@ -3631,6 +3650,7 @@ exports.DEFAULT_SETTINGS = {
     labelSize: 14,
     labelColor: "#000",
     labelWeight: "normal",
+    labelManual: false,
     edgeLabelFont: "Arial",
     edgeLabelSize: 14,
     edgeLabelWeight: "normal",

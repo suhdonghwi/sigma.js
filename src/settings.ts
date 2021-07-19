@@ -49,6 +49,7 @@ export interface Settings {
   labelSize: number;
   labelWeight: string;
   labelColor: string;
+  labelManual: boolean;
   edgeLabelFont: string;
   edgeLabelSize: number;
   edgeLabelWeight: string;
@@ -88,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   labelSize: 14,
   labelColor: "#000",
   labelWeight: "normal",
+  labelManual: false,
   edgeLabelFont: "Arial",
   edgeLabelSize: 14,
   edgeLabelWeight: "normal",
