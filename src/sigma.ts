@@ -754,7 +754,7 @@ export default class Sigma extends EventEmitter {
     }
 
     // Caching visible nodes and displayed labels
-    this.displayedLabels = new Set(labelsToDisplay);
+    if (!this.settings.labelManual) this.displayedLabels = new Set(labelsToDisplay);
 
     return this;
   }
