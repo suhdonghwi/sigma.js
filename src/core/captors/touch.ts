@@ -39,10 +39,10 @@ export default class TouchCaptor extends Captor {
     this.handleMove = this.handleMove.bind(this);
 
     // Binding events
-    container.addEventListener("touchstart", this.handleStart, false);
+    container.addEventListener("touchstart", this.handleStart, { passive: false });
     container.addEventListener("touchend", this.handleLeave, false);
     container.addEventListener("touchcancel", this.handleLeave, false);
-    container.addEventListener("touchmove", this.handleMove, false);
+    container.addEventListener("touchmove", this.handleMove, { passive: false });
   }
 
   kill(): void {

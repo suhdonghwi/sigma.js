@@ -1877,7 +1877,7 @@ var MouseCaptor = /** @class */ (function (_super) {
         container.addEventListener("contextmenu", _this.handleRightClick, false);
         container.addEventListener("mousedown", _this.handleDown, false);
         container.addEventListener("mousemove", _this.handleMove, false);
-        container.addEventListener("wheel", _this.handleWheel, false);
+        container.addEventListener("wheel", _this.handleWheel, { passive: false });
         container.addEventListener("mouseout", _this.handleOut, false);
         document.addEventListener("mouseup", _this.handleUp, false);
         return _this;
@@ -2807,7 +2807,8 @@ var Sigma = /** @class */ (function (_super) {
             }, this.settings);
         }
         // Caching visible nodes and displayed labels
-        this.displayedLabels = new Set(labelsToDisplay);
+        if (!this.settings.labelManual)
+            this.displayedLabels = new Set(labelsToDisplay);
         return this;
     };
     /**
@@ -4876,10 +4877,10 @@ var TouchCaptor = /** @class */ (function (_super) {
         _this.handleLeave = _this.handleLeave.bind(_this);
         _this.handleMove = _this.handleMove.bind(_this);
         // Binding events
-        container.addEventListener("touchstart", _this.handleStart, false);
+        container.addEventListener("touchstart", _this.handleStart, { passive: false });
         container.addEventListener("touchend", _this.handleLeave, false);
         container.addEventListener("touchcancel", _this.handleLeave, false);
-        container.addEventListener("touchmove", _this.handleMove, false);
+        container.addEventListener("touchmove", _this.handleMove, { passive: false });
         return _this;
     }
     TouchCaptor.prototype.kill = function () {
