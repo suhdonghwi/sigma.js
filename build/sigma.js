@@ -3405,7 +3405,7 @@ function labelsToDisplayFromGrid(params) {
     var worthyLabels = [];
     if (labelManual) {
         graph.forEachNode(function (key) {
-            if (graph.getNodeAttribute(key, "showLabel") === true)
+            if (graph.getNodeAttribute(key, "showLabel") === true && graph.getNodeAttribute(key, "hidden") !== true)
                 worthyLabels.push(key);
         });
     }

@@ -86,8 +86,9 @@ export function labelsToDisplayFromGrid(params: {
   const worthyLabels: Array<NodeKey> = [];
 
   if (labelManual) {
-    graph.forEachNode(key => {
-      if (graph.getNodeAttribute(key, "showLabel") === true) worthyLabels.push(key);
+    graph.forEachNode((key) => {
+      if (graph.getNodeAttribute(key, "showLabel") === true && graph.getNodeAttribute(key, "hidden") !== true)
+        worthyLabels.push(key);
     });
   } else {
     const cameraState = camera.getState(),
@@ -116,7 +117,7 @@ export function labelsToDisplayFromGrid(params: {
     if (zooming && cameraState.ratio >= 1) shouldReturnSameLabels = true;
 
     if (shouldReturnSameLabels) return Array.from(displayedLabels);
-// Adapting cell dimensions
+    // Adapting cell dimensions
     let cell = userCell ? userCell : DEFAULT_CELL;
 
     if (cameraState.ratio >= 1.3) cell = DEFAULT_UNZOOMED_CELL;
